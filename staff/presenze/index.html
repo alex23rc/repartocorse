@@ -1,0 +1,1310 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Presenze &amp; Crediti Ore — V2</title>
+<style>
+  :root{
+    --bg:#eef1f4; --panel:#ffffff; --ink:#15212b; --muted:#5b6b78;
+    --line:#dfe5ea; --accent:#0f6e6e; --accent-d:#0b5555;
+    --debt:#b45309; --debt-bg:#fdf3e7; --ok:#15803d; --ok-bg:#eaf6ee;
+    --ferie:#1d4ed8; --ferie-bg:#eaf0fe; --malattia:#9333ea; --malattia-bg:#f5ecfd;
+    --lutto:#15803d; --lutto-bg:#dcf2e1; --festivo:#0891b2; --festivo-bg:#e7f6fa;
+    --rol:#0f766e; --shadow:0 1px 2px rgba(20,33,43,.06),0 4px 16px rgba(20,33,43,.06);
+    --radius:12px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg);color:var(--ink);font-size:15px;line-height:1.45;-webkit-font-smoothing:antialiased}
+  button{font-family:inherit;cursor:pointer}
+  input,select{font-family:inherit;font-size:15px}
+  a{color:var(--accent)}
+
+  .topbar{position:sticky;top:0;z-index:20;background:var(--panel);border-bottom:1px solid var(--line);
+    display:flex;align-items:center;gap:12px;padding:12px 20px;flex-wrap:wrap}
+  .brand{font-weight:700;letter-spacing:-.2px;display:flex;align-items:center;gap:9px}
+  .brand .dot{width:11px;height:11px;border-radius:3px;background:var(--accent);display:inline-block}
+  .brand small{font-weight:500;color:var(--muted);letter-spacing:.3px}
+  .spacer{flex:1}
+  .who{color:var(--muted);font-size:13px}
+  .who b{color:var(--ink)}
+
+  .wrap{max-width:1220px;margin:0 auto;padding:22px 20px 70px}
+
+  .btn{border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:8px 14px;
+    border-radius:9px;font-size:14px;font-weight:600;transition:.12s}
+  .btn:hover{border-color:#c4ccd3}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  .btn.primary:hover{background:var(--accent-d);border-color:var(--accent-d)}
+  .btn.ghost{background:transparent;border-color:transparent;color:var(--muted)}
+  .btn.ghost:hover{color:var(--ink)}
+  .btn.danger{color:#b91c1c;border-color:#f0c9c9}
+  .btn.danger:hover{background:#fdeaea}
+  .btn:disabled{opacity:.4;cursor:not-allowed}
+  .btn.sm{padding:5px 10px;font-size:13px;border-radius:7px}
+  .btn.stamp{background:#eef6f6;border-color:#cfe6e6;color:var(--accent-d);padding:6px 10px}
+  .btn.stamp:hover{background:#e0efef}
+
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+  .card.pad{padding:18px 20px}
+  .row{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+
+  /* LOGIN */
+  .login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+  .login{width:100%;max-width:430px}
+  .login h1{margin:0 0 4px;font-size:22px;letter-spacing:-.3px}
+  .login p.sub{margin:0 0 22px;color:var(--muted);font-size:14px}
+  .field{margin-bottom:14px}
+  .field label{display:block;font-size:12px;font-weight:700;color:var(--muted);
+    text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px}
+  .field input,.field select{width:100%;padding:11px 12px;border:1px solid var(--line);
+    border-radius:9px;background:#fff;outline:none}
+  .field input:focus,.field select:focus{border-color:var(--accent)}
+  .pininput{letter-spacing:8px;font-size:20px;text-align:center}
+  .tabs{display:flex;gap:6px;background:#e7ecf0;padding:4px;border-radius:11px;margin-bottom:20px}
+  .tabs button{flex:1;border:none;background:transparent;padding:9px;border-radius:8px;font-weight:600;color:var(--muted)}
+  .tabs button.active{background:#fff;color:var(--ink);box-shadow:var(--shadow)}
+  .err{background:var(--debt-bg);color:var(--debt);border:1px solid #f3dcc0;padding:9px 12px;border-radius:9px;font-size:13.5px;margin-bottom:14px}
+  .note{background:#eef6f6;border:1px solid #cfe6e6;color:var(--accent-d);padding:10px 13px;border-radius:10px;font-size:13px;margin-bottom:14px}
+  .warn{background:var(--debt-bg);border:1px solid #f0ddc4;color:var(--debt);padding:10px 13px;border-radius:10px;font-size:13.5px}
+
+  .monthnav{display:flex;align-items:center;gap:10px}
+  .monthnav .title{font-size:19px;font-weight:700;letter-spacing:-.2px;text-transform:capitalize;min-width:190px;text-align:center}
+
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin:16px 0 18px}
+  .stat{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:13px 15px}
+  .stat .k{font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
+  .stat .v{font-size:22px;font-weight:700;margin-top:3px;letter-spacing:-.5px}
+  .stat.debt .v{color:var(--debt)} .stat.debt{background:var(--debt-bg);border-color:#f0ddc4}
+  .stat.ok .v{color:var(--ok)} .stat.ok{background:var(--ok-bg);border-color:#cfe7d6}
+
+  /* DAY GRID */
+  table.grid{width:100%;border-collapse:collapse;font-size:13.5px;table-layout:fixed}
+  table.grid col.c-day{width:92px} table.grid col.c-type{width:150px}
+  table.grid col.c-t{width:104px} table.grid col.c-hrs{width:150px} table.grid col.c-act{width:120px}
+  table.grid th,table.grid td{padding:8px 9px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
+  table.grid th{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:700;background:#fafbfc}
+  table.grid tr.today td{box-shadow:inset 3px 0 0 var(--accent)}
+  table.grid tr.holiday td{background:var(--festivo-bg)}
+  table.grid tr.weekgap td{padding:0;border:none;background:transparent}
+  .weeklabel{font-size:11.5px;font-weight:700;letter-spacing:.4px;color:var(--muted);
+    text-transform:uppercase;padding:16px 4px 6px}
+  .daycell{display:flex;flex-direction:column}
+  .dnum{font-weight:700;font-size:15px}
+  .dname{font-size:11px;color:var(--muted);text-transform:capitalize}
+  .modbadge{font-size:10.5px;font-weight:700;color:var(--debt);margin-top:2px;cursor:default}
+  .time-in{width:96px;padding:8px 8px;border:1px solid var(--line);border-radius:8px;text-align:center;font-variant-numeric:tabular-nums}
+  .time-in:focus{border-color:var(--accent);outline:none}
+  .typesel{width:100%;padding:7px 8px;border:1px solid var(--line);border-radius:8px;background:#fff}
+  .hrs{font-variant-numeric:tabular-nums;font-weight:600}
+  .hrs .sub{font-size:11px;font-weight:600;margin-top:2px}
+  .pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11.5px;font-weight:700;letter-spacing:.2px}
+  .pill.ferie{background:var(--ferie-bg);color:var(--ferie)}
+  .pill.malattia{background:var(--malattia-bg);color:var(--malattia)}
+  .pill.lutto{background:var(--lutto-bg);color:var(--lutto)}
+  .pill.festivo{background:var(--festivo-bg);color:var(--festivo)}
+  .pill.rol{background:#e7f3f1;color:var(--rol)}
+  .pill.fdebt{background:var(--ferie-bg);color:var(--ferie)}
+  .pill.work{background:#eef6f6;color:var(--accent-d)}
+
+  table.ov{width:100%;border-collapse:collapse;font-size:14px}
+  table.ov th,table.ov td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:left}
+  table.ov th{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:700}
+  table.ov th.num,table.ov td.num{text-align:center;font-variant-numeric:tabular-nums}
+  table.ov tr:hover td{background:#fafbfc}
+  .badge{padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700}
+  .badge.open{background:var(--debt-bg);color:var(--debt)}
+  .badge.closed{background:var(--ok-bg);color:var(--ok)}
+  .badge.none{background:#eef1f4;color:var(--muted)}
+
+  .sectitle{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin:26px 0 10px}
+  .legend{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 0}
+  .hint{color:var(--muted);font-size:12.5px}
+
+  .conv-add{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-top:6px}
+  .conv-list{margin-top:12px;display:flex;flex-direction:column;gap:7px}
+  .conv-item{display:flex;align-items:center;gap:10px;background:#fafbfc;border:1px solid var(--line);border-radius:9px;padding:8px 12px;font-size:13.5px}
+  .conv-item .grow{flex:1}
+
+  .overlay{position:fixed;inset:0;background:rgba(20,33,43,.42);display:flex;align-items:center;justify-content:center;z-index:50;padding:20px}
+  .modal{background:#fff;border-radius:14px;max-width:600px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.25);max-height:88vh;overflow:auto}
+  .modal .mhead{padding:16px 20px;border-bottom:1px solid var(--line);font-weight:700;display:flex;align-items:center}
+  .modal .mbody{padding:18px 20px}
+  .modal .mfoot{padding:14px 20px;border-top:1px solid var(--line);display:flex;gap:10px;justify-content:flex-end}
+  .emp-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+  .emp-row .grow{flex:1}
+  .hist{font-size:13px;border-collapse:collapse;width:100%}
+  .hist td,.hist th{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left}
+  .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:11px 18px;border-radius:10px;font-size:14px;z-index:60;box-shadow:0 8px 24px rgba(0,0,0,.25)}
+  @media (max-width:720px){ .wrap{padding:16px 12px 60px} .time-in{width:80px} }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<!-- xlsx-js-style: come SheetJS ma con supporto agli stili (celle colorate) -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+<script>
+/* ============================================================================
+   CONFIGURAZIONE FIREBASE
+   Lascia "INCOLLA_..." per la modalità LOCALE (localStorage, prove sul tuo PC).
+   Incolla la config del progetto per attivare la condivisione tra i dipendenti.
+   ========================================================================== */
+var FIREBASE_CONFIG = {
+  apiKey:            "AIzaSyBEyiaiuPj7Y4tTXKiBIwLOUxibh5kktxY",
+  authDomain:        "repartocorse-f3d96.firebaseapp.com",
+  projectId:         "repartocorse-f3d96",
+  storageBucket:     "repartocorse-f3d96.firebasestorage.app",
+  messagingSenderId: "749589521996",
+  appId:             "1:749589521996:web:731d72c6fbb18c1525b6e9"
+};
+</script>
+
+<script>
+/* ============================================================================
+   Presenze & Crediti Ore — V2.0
+   React 18 (UMD) + React.createElement (no JSX/Babel).
+   ========================================================================== */
+(function(){
+  "use strict";
+  var h = React.createElement;
+  var useState = React.useState, useEffect = React.useEffect;
+
+  /* ---------- Costanti ---------- */
+  var EXP = 8*60;                 // 8 ore previste
+  var MESI = ["gennaio","febbraio","marzo","aprile","maggio","giugno","luglio","agosto","settembre","ottobre","novembre","dicembre"];
+  var GIORNI = ["domenica","lunedì","martedì","mercoledì","giovedì","venerdì","sabato"];
+  var GBREVI = ["dom","lun","mar","mer","gio","ven","sab"];
+  // Tipi di GIORNATA INTERA (sostituiscono il lavoro). 'main' = menu principale, 'altro' = sottomenu "Altro".
+  var DAY_TYPES = [
+    {v:"work",            code:null, label:"Lavoro",                                    grp:"main"},
+    {v:"ferie",           code:"F",  label:"Ferie",                                     grp:"main"},
+    {v:"malattia",        code:"M",  label:"Malattia propria",                          grp:"main"},
+    {v:"congedo_matrim",  code:"CON",label:"Congedo matrimoniale",                      grp:"altro"},
+    {v:"lutto",           code:"LST",label:"Lutto (parenti stretti)",                   grp:"altro"},
+    {v:"mat_obblig",      code:"MAT",label:"Maternità obbligatoria / cong. paternità",  grp:"altro"},
+    {v:"malattia_figlio", code:"MF", label:"Malattia figlio",                           grp:"altro"},
+    {v:"mat_facolt",      code:"FAC",label:"Maternità facoltativa (cong. parentale)",   grp:"altro"},
+    {v:"pat",             code:"PAT",label:"Congedo paternità obbligatorio",            grp:"altro"},
+    {v:"infermita",       code:"INF",label:"Grave infermità familiare (3 gg)",          grp:"altro"},
+    {v:"gmf",             code:"GMF",label:"Gravi motivi familiari (non retrib.)",       grp:"altro"},
+    {v:"l104",            code:"104",label:"Permesso L.104 (giornaliero)",              grp:"altro"},
+    {v:"cs",              code:"CS", label:"Congedo straordinario L.104",               grp:"altro"},
+    {v:"infortunio",      code:"INP",label:"Infortunio sul lavoro",                     grp:"altro"},
+    {v:"aspettativa",     code:"AS", label:"Aspettativa non retribuita",                grp:"altro"},
+    {v:"exf",             code:"EXF",label:"Festività soppresse",                       grp:"altro"},
+    {v:"festivo",         code:null, label:"Festività",                                 grp:"auto"}
+  ];
+  function dayType(v){ for(var i=0;i<DAY_TYPES.length;i++) if(DAY_TYPES[i].v===v) return DAY_TYPES[i]; return DAY_TYPES[0]; }
+  function absLabel(v){ return dayType(v).label; }
+  function absCode(v){ return dayType(v).code; }
+  var ALTRO_TYPES = DAY_TYPES.filter(function(t){return t.grp==="altro";});
+  function isNeutral(t){ return !!t && t!=="work"; }   // qualunque tipo non-lavoro copre la giornata
+  function isAbsence(t){ return isNeutral(t) && t!=="festivo"; } // assenza vera (esclude festività)
+
+  // PERMESSI / assenze momentanee (Tabella 3). Inseribili come i ROL, con ore facoltative.
+  var PERMIT_TYPES = [
+    {v:"perm_104h", code:"104H", label:"Permesso L.104 (orario)"},
+    {v:"perm_stu",  code:"STU",  label:"Permesso studio (150 ore)"},
+    {v:"perm_ds",   code:"DS",   label:"Donazione sangue"},
+    {v:"perm_dsv",  code:"DSV",  label:"Doveri elettorali / seggio"},
+    {v:"perm_all",  code:"ALL",  label:"Allattamento"}
+  ];
+  function permitCode(v){ for(var i=0;i<PERMIT_TYPES.length;i++) if(PERMIT_TYPES[i].v===v) return PERMIT_TYPES[i].code; return v; }
+  function permitLabel(v){ for(var i=0;i<PERMIT_TYPES.length;i++) if(PERMIT_TYPES[i].v===v) return PERMIT_TYPES[i].label; return v; }
+
+  // Legenda completa per il report (gruppi come da specifica)
+  var LEGEND_GROUPS = [
+    {t:"Ferie e Permessi Ordinari", items:[["F","Ferie"],["ROL","Permessi riduzione orario di lavoro"],["EXF","Festività soppresse"]]},
+    {t:"Malattia e Maternità", items:[["M","Malattia propria"],["MF","Malattia figlio"],["MAT","Maternità obbligatoria (o congedo paternità alternativo)"],["FAC","Maternità facoltativa (congedo parentale)"],["PAT","Congedo di paternità obbligatorio"]]},
+    {t:"Eventi Familiari e Personali", items:[["CON","Congedo matrimoniale"],["LST","Permesso per lutto (parenti stretti)"],["INF","Permesso per grave infermità familiare (3 gg retribuiti)"],["GMF","Congedo per gravi motivi familiari (non retribuito)"]]},
+    {t:"Disabilità e Assistenza (Legge 104)", items:[["104","Permesso mensile L.104 (giornaliero)"],["104H","Permesso mensile L.104 (orario)"],["CS","Congedo straordinario L.104 (biennale)"]]},
+    {t:"Altre Assenze Tutelate", items:[["INP","Infortunio sul lavoro"],["DS","Donazione sangue"],["DSV","Doveri elettorali / seggio elettorale"],["STU","Permesso studio / Diritto allo studio (150 ore)"],["AS","Aspettativa non retribuita"],["ALL","Allattamento"]]}
+  ];
+
+  var CONV = [
+    {v:"rol_debito",label:"ROL da debito (0,5h)",min:30},
+    {v:"rol_debito_1",label:"ROL da debito (1h)",min:60},
+    {v:"ferie_debito",label:"Ferie da debito (8h)",min:480}
+  ];
+  function convMin(k){ for(var i=0;i<CONV.length;i++) if(CONV[i].v===k) return CONV[i].min; return 0; }
+  function convLabel(k){ for(var i=0;i<CONV.length;i++) if(CONV[i].v===k) return CONV[i].label; return k; }
+  function convIsFerie(k){ return k==="ferie_debito"; }
+  function permitMinutesOf(entry){ var t=0; if(entry&&entry.permits) for(var i=0;i<entry.permits.length;i++){ t+=Math.round((parseFloat(entry.permits[i].hours)||0)*60); } return t; }
+
+
+  /* ---------- Date / tempo ---------- */
+  function pad2(n){ return (n<10?"0":"")+n; }
+  function ymd(d){ return d.getFullYear()+"-"+pad2(d.getMonth()+1)+"-"+pad2(d.getDate()); }
+  function mKeyOf(y,m){ return y+"-"+pad2(m+1); }
+  function todayKey(){ return ymd(new Date()); }
+  function parseHM(s){ if(!s) return null; var p=String(s).split(":"); if(p.length!==2) return null;
+    var hh=parseInt(p[0],10),mm=parseInt(p[1],10); if(isNaN(hh)||isNaN(mm)) return null; return hh*60+mm; }
+  function nowHM(){ var d=new Date(); return pad2(d.getHours())+":"+pad2(d.getMinutes()); }
+  function fmtMin(min){ var a=Math.abs(min); return Math.floor(a/60)+"h "+pad2(a%60)+"m"; }
+  function fmtHM(min){ var a=Math.abs(min),hh=Math.floor(a/60),mm=a%60; return hh>0?(hh+"h "+pad2(mm)+"m"):(mm+"m"); }
+  function fmtSigned(min){ return (min<0?"−":(min>0?"+":""))+fmtMin(min); }
+  function fmtH05(h){ return (Math.round(h*2)/2).toFixed(1).replace(".",",")+"h"; }
+  function daysInMonth(y,m){ return new Date(y,m+1,0).getDate(); }
+  function monthDiff(a,b){ return (a.y-b.y)*12 + (a.m-b.m); } // a-b in mesi
+
+  /* ---------- Festivi italiani ---------- */
+  function easter(Y){
+    var a=Y%19,b=Math.floor(Y/100),c=Y%100,d=Math.floor(b/4),e=b%4,f=Math.floor((b+8)/25),
+        g=Math.floor((b-f+1)/3),hh=(19*a+b-d-g+15)%30,i=Math.floor(c/4),k=c%4,
+        l=(32+2*e+2*i-hh-k)%7,mm=Math.floor((a+11*hh+22*l)/451),
+        month=Math.floor((hh+l-7*mm+114)/31),day=((hh+l-7*mm+114)%31)+1;
+    return new Date(Y,month-1,day);
+  }
+  var _holCache={};
+  function holidays(year){
+    if(_holCache[year]) return _holCache[year];
+    var H={};
+    H[year+"-01-01"]="Capodanno"; H[year+"-01-06"]="Epifania";
+    H[year+"-04-25"]="Liberazione"; H[year+"-05-01"]="Festa del Lavoro";
+    H[year+"-06-02"]="Festa della Repubblica"; H[year+"-08-15"]="Ferragosto";
+    H[year+"-11-01"]="Tutti i Santi"; H[year+"-12-08"]="Immacolata";
+    H[year+"-12-25"]="Natale"; H[year+"-12-26"]="Santo Stefano";
+    var e=easter(year); var pm=new Date(e.getFullYear(),e.getMonth(),e.getDate()+1); // Pasquetta
+    H[ymd(e)]="Pasqua"; H[ymd(pm)]="Lunedì dell'Angelo";
+    _holCache[year]=H; return H;
+  }
+  function holidayName(dateStr){
+    var y=parseInt(dateStr.split("-")[0],10);
+    return holidays(y)[dateStr]||null;
+  }
+
+  /* ---------- Tipo effettivo del giorno ---------- */
+  function effType(empId, dateStr, attendance){
+    var e=attendance[empId+"__"+dateStr];
+    if(e && e.type) return e.type;
+    if(holidayName(dateStr)) return "festivo";
+    return "work";
+  }
+
+  function workedMinutes(entry){
+    if(!entry) return null;
+    var total=0,any=false;
+    var mi=parseHM(entry.mIn),mo=parseHM(entry.mOut); if(mi!=null&&mo!=null&&mo>mi){total+=mo-mi;any=true;}
+    var ai=parseHM(entry.aIn),ao=parseHM(entry.aOut); if(ai!=null&&ao!=null&&ao>ai){total+=ao-ai;any=true;}
+    return any?total:null;
+  }
+  /* scomposizione: 'expected' = ore previste del giorno (ridotte dai permessi giustificati).
+     Se ROL attivo -> ROL in step 0,5h + debito (resto <30min); se ROL off -> scarto = debito pieno. */
+  function dayBreakdown(worked, rolAutoOn, expected){
+    var exp = (typeof expected==="number")?expected:EXP;
+    if(exp<0) exp=0;
+    var diff=worked-exp;
+    if(diff>=0) return {worked:worked,credit:diff,rol:0,debt:0};
+    var shortfall=-diff;
+    if(!rolAutoOn) return {worked:worked,credit:0,rol:0,debt:shortfall};
+    var chunks=Math.floor(shortfall/30);
+    var rol=chunks*0.5;
+    var debt=shortfall-chunks*30;
+    return {worked:worked,credit:0,rol:rol,debt:debt};
+  }
+  /* permessi per-dipendente (impostati dall'admin in Gestisci dipendenti) */
+  function empCanConv(e){ return !!(e && e.permConv); }            // conversioni ROL/ferie da debito (default NO)
+  function empShowConsole(e){ return !e || e.permConsole!==false; } // console riepilogo in alto (default SÌ)
+  function empShowDaily(e){ return !e || e.permDaily!==false; }     // riepilogo accanto agli orari (default SÌ)
+
+  /* ROL automatico a 3 livelli: giorno > mese > default dipendente (default = Sì) */
+  function empRolDefault(emp){ return !emp || emp.rolAuto!==false; }
+  function monthRolMode(clo){ return (clo&&clo.rolAutoMonth)?clo.rolAutoMonth:"default"; } // "default"|"on"|"off"
+  function rolAutoFor(emp, clo, entry){
+    if(entry && (entry.rolAutoDay===true || entry.rolAutoDay===false)) return entry.rolAutoDay;
+    var mm=monthRolMode(clo);
+    if(mm==="on") return true;
+    if(mm==="off") return false;
+    return empRolDefault(emp);
+  }
+
+  /* ---------- Statistiche mensili ---------- */
+  function monthStats(empId, mKey, data){
+    var clo=data.closures[empId+"__"+mKey]||{items:[],closed:false,carryOut:0,rolAutoMonth:"default"};
+    // Mese chiuso = fotografia congelata
+    if(clo.closed && clo.snapshot){ return Object.assign({}, clo.snapshot, {closure:clo}); }
+    return Object.assign({}, computeMonthStats(empId, mKey, data), {closure:clo});
+  }
+  /* calcolo live (senza riferimento alla closure) */
+  function computeMonthStats(empId, mKey, data){
+    var p=mKey.split("-"); var y=parseInt(p[0],10), m=parseInt(p[1],10)-1;
+    var dim=daysInMonth(y,m);
+    var emp=null; for(var ei=0;ei<data.employees.length;ei++){ if(data.employees[ei].id===empId){ emp=data.employees[ei]; break; } }
+    var clo=data.closures[empId+"__"+mKey]||{items:[],closed:false,carryOut:0,rolAutoMonth:"default"};
+    var rolAuto=0, debtMin=0, creditMin=0, workedTotal=0, workedDays=0;
+    var byType={}, absDays=0, permitCount=0, missing=[];
+    var rolByDate={}, neutralByDate={}, permitsByDate={};
+    for(var d=1; d<=dim; d++){
+      var date=mKey+"-"+pad2(d);
+      var dow=new Date(y,m,d).getDay();
+      var weekend=(dow===0||dow===6);
+      var t=effType(empId,date,data.attendance);
+      if(isNeutral(t)){
+        neutralByDate[date]=t;
+        byType[t]=(byType[t]||0)+1;
+        if(isAbsence(t)) absDays++;
+        continue;
+      }
+      var entry=data.attendance[empId+"__"+date];
+      if(entry && entry.permits && entry.permits.length){ permitsByDate[date]=entry.permits; permitCount+=entry.permits.length; }
+      var permMin=permitMinutesOf(entry);               // ore di permesso giustificate
+      var wm=workedMinutes(entry);
+      if(wm!=null){
+        var rolOn=rolAutoFor(emp, clo, entry);
+        var expDay=EXP-permMin;                          // previsto ridotto dai permessi
+        var b=dayBreakdown(wm, rolOn, expDay);
+        workedTotal+=wm; workedDays++;
+        rolAuto+=b.rol; debtMin+=b.debt; creditMin+=b.credit;
+        if(b.rol>0) rolByDate[date]=b.rol;
+      } else if(permMin>0){
+        // giorno SENZA orari ma CON permesso: lavorate=0, previsto = 8h − ore permesso
+        var rolOn2=rolAutoFor(emp, clo, entry);
+        var b2=dayBreakdown(0, rolOn2, EXP-permMin);
+        rolAuto+=b2.rol; debtMin+=b2.debt; creditMin+=b2.credit;
+        if(b2.rol>0) rolByDate[date]=b2.rol;
+        // niente workedDays (0 ore lavorate) e NON è "non registrato"
+      } else if(!weekend){
+        missing.push(d);
+      }
+    }
+    var rolManual=0, ferieDebito=0, manualByDate={}, manualRolByDate={}, manualFerieByDate={};
+    for(var i=0;i<clo.items.length;i++){
+      var it=clo.items[i];
+      if(convIsFerie(it.kind)){ ferieDebito++; manualByDate[it.date]={kind:it.kind}; manualFerieByDate[it.date]=true; }
+      else { var hrs=convMin(it.kind)/60; rolManual+=hrs; manualByDate[it.date]={kind:it.kind}; manualRolByDate[it.date]=(manualRolByDate[it.date]||0)+hrs; }
+    }
+    var offset = rolManual*60 + ferieDebito*480;
+    var carryIn = prevCarry(empId, y, m, data);
+    var netMonth = creditMin - debtMin + offset;
+    var netRunning = carryIn + netMonth;
+    return {
+      y:y,m:m,dim:dim, rolAuto:rolAuto, rolManual:rolManual, rolTotal:rolAuto+rolManual,
+      debtMin:debtMin, creditMin:creditMin, offset:offset,
+      workedTotal:workedTotal, workedDays:workedDays,
+      byType:byType, absDays:absDays, permitCount:permitCount,
+      ferie:byType["ferie"]||0, malattia:byType["malattia"]||0, lutto:byType["lutto"]||0,
+      ferieDebito:ferieDebito, missing:missing,
+      carryIn:carryIn, netMonth:netMonth, netRunning:netRunning,
+      debtResidual: netRunning<0?-netRunning:0, creditResidual: netRunning>0?netRunning:0,
+      rolByDate:rolByDate, neutralByDate:neutralByDate, permitsByDate:permitsByDate,
+      manualByDate:manualByDate, manualRolByDate:manualRolByDate, manualFerieByDate:manualFerieByDate
+    };
+  }
+  /* saldo riportato dal mese precedente (se chiuso) */
+  function prevCarry(empId, y, m, data){
+    var pd=new Date(y,m-1,1);
+    var clo=data.closures[empId+"__"+mKeyOf(pd.getFullYear(),pd.getMonth())];
+    if(clo && clo.closed && typeof clo.carryOut==="number") return clo.carryOut;
+    return 0;
+  }
+
+  /* ============================================================================
+     PERSISTENZA (Firestore se configurato, altrimenti localStorage)
+     ========================================================================== */
+  var firebaseReady=false, db=null;
+  function initFirebase(){
+    try{
+      if(FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey.indexOf("INCOLLA")===-1){
+        if(!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+        db=firebase.firestore(); firebaseReady=true;
+      }
+    }catch(e){ console.warn("Firebase off, uso localStorage:",e); firebaseReady=false; }
+  }
+  var LS_KEY="presenze_data_v2";
+  function lsLoad(){ try{var r=localStorage.getItem(LS_KEY); if(r) return JSON.parse(r);}catch(e){} return null; }
+  function lsSave(d){ try{ localStorage.setItem(LS_KEY, JSON.stringify(d)); }catch(e){console.warn(e);} }
+  function emptyData(){ return {employees:[], attendance:{}, closures:{}, adminPin:"0000"}; }
+
+  function loadAll(cb){
+    if(firebaseReady){
+      var data=emptyData();
+      var p1=db.collection("presenze2_config").doc("main").get().then(function(doc){
+        if(doc.exists){var c=doc.data(); data.employees=c.employees||[]; data.adminPin=c.adminPin||"0000";}
+      });
+      var p2=db.collection("presenze2_attendance").get().then(function(s){
+        s.forEach(function(doc){var dd=doc.data(),days=dd.days||{};
+          for(var k in days) if(days.hasOwnProperty(k)) data.attendance[dd.empId+"__"+k]=days[k];});
+      });
+      var p3=db.collection("presenze2_closures").get().then(function(s){
+        s.forEach(function(doc){var dd=doc.data();
+          data.closures[dd.empId+"__"+dd.month]={items:dd.items||[],closed:!!dd.closed,closedAt:dd.closedAt||null,carryOut:dd.carryOut||0,rolAutoMonth:dd.rolAutoMonth||"default",snapshot:dd.snapshot||null};});
+      });
+      Promise.all([p1,p2,p3]).then(function(){cb(data);}).catch(function(e){console.error(e);cb(lsLoad()||emptyData());});
+    } else cb(lsLoad()||emptyData());
+  }
+  function saveConfig(data){ if(firebaseReady) db.collection("presenze2_config").doc("main").set({employees:data.employees,adminPin:data.adminPin}).catch(function(e){console.error(e);}); else lsSave(data); }
+  function saveMonth(data, empId, mKey){
+    if(firebaseReady){
+      var days={}, p=mKey.split("-"), dim=daysInMonth(parseInt(p[0],10),parseInt(p[1],10)-1);
+      for(var d=1;d<=dim;d++){var date=mKey+"-"+pad2(d),e=data.attendance[empId+"__"+date]; if(e)days[date]=e;}
+      db.collection("presenze2_attendance").doc("att_"+empId+"_"+mKey).set({empId:empId,month:mKey,days:days}).catch(function(e){console.error(e);});
+    } else lsSave(data);
+  }
+  function saveClosure(data, empId, mKey){
+    if(firebaseReady){
+      var c=data.closures[empId+"__"+mKey]||{items:[],closed:false,closedAt:null,carryOut:0,rolAutoMonth:"default",snapshot:null};
+      db.collection("presenze2_closures").doc("clo_"+empId+"_"+mKey).set({empId:empId,month:mKey,items:c.items,closed:c.closed,closedAt:c.closedAt||null,carryOut:c.carryOut||0,rolAutoMonth:c.rolAutoMonth||"default",snapshot:c.snapshot||null}).catch(function(e){console.error(e);});
+    } else lsSave(data);
+  }
+
+  /* ============================================================================
+     UNDO (a casi; se ne possono aggiungere altri)
+     scope: {kind:'month',empId,mKey} | {kind:'closure',empId,mKey} | {kind:'config'}
+     ========================================================================== */
+  var undoStack=[];
+  function clone(o){ return JSON.parse(JSON.stringify(o)); }
+  function snapScope(data, scope){
+    if(scope.kind==="month"){
+      var o={}, p=scope.mKey.split("-"), dim=daysInMonth(parseInt(p[0],10),parseInt(p[1],10)-1);
+      for(var d=1;d<=dim;d++){var date=scope.mKey+"-"+pad2(d),key=scope.empId+"__"+date; if(data.attendance[key]) o[date]=clone(data.attendance[key]);}
+      return o;
+    }
+    if(scope.kind==="closure"){ var c=data.closures[scope.empId+"__"+scope.mKey]; return c?clone(c):null; }
+    if(scope.kind==="closure_all"){ var o={}; data.employees.forEach(function(e){ var cc=data.closures[e.id+"__"+scope.mKey]; o[e.id]=cc?clone(cc):null; }); return o; }
+    if(scope.kind==="config"){ return {employees:clone(data.employees), adminPin:data.adminPin}; }
+    return null;
+  }
+  function pushUndo(data, scope, label){
+    undoStack.push({scope:scope,label:label,snap:snapScope(data,scope)});
+    if(undoStack.length>40) undoStack.shift();
+  }
+  function applyUndo(data){
+    if(!undoStack.length) return null;
+    var u=undoStack.pop(), s=u.scope;
+    if(s.kind==="month"){
+      var p=s.mKey.split("-"), dim=daysInMonth(parseInt(p[0],10),parseInt(p[1],10)-1);
+      for(var d=1;d<=dim;d++){var date=s.mKey+"-"+pad2(d),key=s.empId+"__"+date; delete data.attendance[key];}
+      for(var dt in u.snap) if(u.snap.hasOwnProperty(dt)) data.attendance[s.empId+"__"+dt]=u.snap[dt];
+      saveMonth(data,s.empId,s.mKey);
+    } else if(s.kind==="closure"){
+      if(u.snap===null) delete data.closures[s.empId+"__"+s.mKey];
+      else data.closures[s.empId+"__"+s.mKey]=u.snap;
+      saveClosure(data,s.empId,s.mKey);
+    } else if(s.kind==="closure_all"){
+      data.employees.forEach(function(e){ var snap=u.snap[e.id];
+        if(snap===null||snap===undefined) delete data.closures[e.id+"__"+s.mKey];
+        else data.closures[e.id+"__"+s.mKey]=snap;
+        saveClosure(data,e.id,s.mKey); });
+    } else if(s.kind==="config"){
+      data.employees=u.snap.employees; data.adminPin=u.snap.adminPin; saveConfig(data);
+    }
+    return u.label;
+  }
+
+  /* ---------- versioni / storico modifiche ---------- */
+  function commitVersions(data, empId, mKey){
+    var p=mKey.split("-"), dim=daysInMonth(parseInt(p[0],10),parseInt(p[1],10)-1);
+    for(var d=1;d<=dim;d++){
+      var key=empId+"__"+(mKey+"-"+pad2(d)), e=data.attendance[key];
+      if(!e) continue;
+      var snap={type:e.type||"work",mIn:e.mIn||"",mOut:e.mOut||"",aIn:e.aIn||"",aOut:e.aOut||""};
+      e.versions=e.versions||[];
+      var last=e.versions[e.versions.length-1];
+      var changed=!last||last.type!==snap.type||last.mIn!==snap.mIn||last.mOut!==snap.mOut||last.aIn!==snap.aIn||last.aOut!==snap.aOut;
+      if(changed) e.versions.push(Object.assign({ts:new Date().toISOString()},snap));
+    }
+  }
+  function editCountOf(entry){ return (entry&&entry.versions)?Math.max(0,entry.versions.length-1):0; }
+  function modText(n){ return n===0?"":(n===1?"modificato":"modificato "+n+" volte"); }
+
+  /* ============================================================================
+     COMPONENTI
+     ========================================================================== */
+  function MonthNav(props){
+    return h("div",{className:"monthnav"},
+      h("button",{className:"btn sm",onClick:props.onPrev,disabled:props.prevDisabled,title:"Mese precedente"},"‹"),
+      h("div",{className:"title"}, MESI[props.month]+" "+props.year),
+      h("button",{className:"btn sm",onClick:props.onNext,disabled:props.nextDisabled,title:"Mese successivo"},"›"),
+      props.onToday?h("button",{className:"btn ghost sm",onClick:props.onToday},"Oggi"):null
+    );
+  }
+  function Legend(){
+    function lg(c,l){return h("span",{className:"pill "+c},l);}
+    return h("div",{className:"legend"},
+      lg("work","Lavoro"),lg("ferie","Ferie"),lg("malattia","Malattia"),
+      lg("festivo","Festività"),lg("rol","ROL"));
+  }
+  function StatCards(props){
+    var s=props.stats;
+    return h("div",{className:"stats"},
+      h("div",{className:"stat"},h("div",{className:"k"},"Ore lavorate"),h("div",{className:"v"},fmtMin(s.workedTotal))),
+      h("div",{className:"stat"},h("div",{className:"k"},"ROL utilizzati"),h("div",{className:"v"},fmtH05(s.rolTotal))),
+      h("div",{className:"stat"},h("div",{className:"k"},"Saldo riportato"),h("div",{className:"v",style:{color:s.carryIn<0?"var(--debt)":(s.carryIn>0?"var(--ok)":"inherit")}},fmtSigned(s.carryIn))),
+      h("div",{className:"stat "+(s.debtResidual>0?"debt":"ok")},h("div",{className:"k"},s.debtResidual>0?"Debito (cumulato)":"Credito (cumulato)"),
+        h("div",{className:"v"}, s.debtResidual>0?fmtMin(s.debtResidual):(s.creditResidual>0?fmtMin(s.creditResidual):"0h 00m")))
+    );
+  }
+
+  /* ----- Griglia presenze (solo feriali, raggruppata per settimana) ----- */
+  function DayGrid(props){
+    var data=props.data, empId=props.empId, mKey=props.mKey, isAdmin=props.isAdmin;
+    var p=mKey.split("-"); var y=parseInt(p[0],10), m=parseInt(p[1],10)-1; var dim=daysInMonth(y,m);
+    var stats=monthStats(empId,mKey,data);
+    var manualByDate=stats.manualByDate;
+    var tk=todayKey();
+    var clo=data.closures[empId+"__"+mKey]||{items:[],closed:false,rolAutoMonth:"default"};
+    var readOnly = !!clo.closed || !!props.readOnly;
+    var showDaily = props.showDaily!==false;   // riepilogo accanto agli orari
+    var emp=null; for(var ei=0;ei<data.employees.length;ei++){ if(data.employees[ei].id===empId){ emp=data.employees[ei]; break; } }
+
+    function getEntry(date){ return data.attendance[empId+"__"+date]||null; }
+    function ensure(date){
+      var key=empId+"__"+date;
+      if(!data.attendance[key]) data.attendance[key]={type: holidayName(date)?"festivo":"work",mIn:"",mOut:"",aIn:"",aOut:"",versions:[]};
+      return data.attendance[key];
+    }
+    function update(date,field,val){ if(readOnly)return; var e=ensure(date); e[field]=val; props.onChange(); }
+    function stamp(date){
+      if(readOnly)return;
+      var e=ensure(date);
+      var order=["mIn","mOut","aIn","aOut"];
+      for(var i=0;i<order.length;i++){ if(!e[order[i]]){ e[order[i]]=nowHM(); props.onChange(); return; } }
+      props.toast("Orari già completi per il giorno");
+    }
+    function toggleRolDay(date){
+      if(readOnly)return;
+      var e=ensure(date);
+      var cur=rolAutoFor(emp,clo,e);   // stato attuale risolto
+      e.rolAutoDay = !cur;             // imposto override esplicito opposto
+      props.onChange();
+    }
+
+    // costruisco righe raggruppate per settimana
+    var rows=[];
+    var weekdaysList=[];
+    for(var d=1; d<=dim; d++){ var dow=new Date(y,m,d).getDay(); if(dow!==0&&dow!==6) weekdaysList.push(d); }
+
+    var lastWeekStarted=false;
+    weekdaysList.forEach(function(d){
+      var date=mKey+"-"+pad2(d);
+      var dow=new Date(y,m,d).getDay();
+      // separatore di settimana prima del lunedì (o del primo giorno)
+      if(dow===1 || !lastWeekStarted){
+        rows.push(h("tr",{className:"weekgap",key:"gap"+d},
+          h("td",{colSpan:6}, h("div",{className:"weeklabel"},"Settimana — "+pad2(d)+" "+MESI[m]))));
+        lastWeekStarted=true;
+      }
+      var hn=holidayName(date);
+      var t=effType(empId,date,data.attendance);
+      var entry=getEntry(date);
+      var manual=manualByDate[date];
+      var ec=editCountOf(entry);
+      var trClass=(date===tk?"today ":"")+(t==="festivo"&&hn?"holiday":"");
+
+      rows.push(h("tr",{className:trClass,key:date}, buildRow()));
+
+      function buildRow(){
+        var c=[];
+        var ent=getEntry(date);
+        var permits=(ent&&ent.permits)||[];
+        c.push(h("td",{key:"d"},h("div",{className:"daycell"},
+          h("span",{className:"dnum"},d),h("span",{className:"dname"},GBREVI[dow]),
+          ec>0?h("span",{className:"modbadge"},modText(ec)):null)));
+
+        // menu tipo a due livelli
+        var mainVal = (t==="work"||t==="ferie"||t==="malattia"||t==="festivo")?t:"altro";
+        function setType(v){
+          if(readOnly)return;
+          if(v!=="work"){ // sto marcando un'assenza a giornata intera: deve essere esclusiva
+            var hasManualRol=(stats.manualRolByDate[date]||0)>0;
+            var hasFD=!!stats.manualFerieByDate[date];
+            var hasPerm=!!(stats.permitsByDate[date]&&stats.permitsByDate[date].length);
+            if(hasManualRol||hasFD){ props.toast("Il giorno ha ROL/ferie da debito: rimuovili (in Conversioni) prima di marcare un'assenza."); return; }
+            if(hasPerm){ props.toast("Il giorno ha permessi: rimuovili prima di marcare un'assenza."); return; }
+          }
+          var e=ensure(date); e.type=v; if(v!=="work"){e.mIn="";e.mOut="";e.aIn="";e.aOut="";} props.onChange();
+        }
+        c.push(h("td",{key:"t"},
+          h("select",{className:"typesel",value:mainVal,disabled:readOnly,onChange:function(ev){
+            var v=ev.target.value;
+            if(v==="altro") setType(ALTRO_TYPES[0].v); else setType(v);
+          }},
+            h("option",{value:"work"},"Lavoro"),
+            h("option",{value:"ferie"},"Ferie"),
+            h("option",{value:"malattia"},"Malattia"),
+            t==="festivo"?h("option",{value:"festivo"},"Festività"):null,
+            h("option",{value:"altro"},"Altro…")),
+          mainVal==="altro"?h("select",{className:"typesel",style:{marginTop:"4px"},value:t,disabled:readOnly,
+            onChange:function(ev){ setType(ev.target.value); }},
+            ALTRO_TYPES.map(function(x){return h("option",{key:x.v,value:x.v}, (x.code?x.code+" – ":"")+x.label);})):null,
+          hn?h("div",{className:"hint",style:{marginTop:"3px"}},hn):null,
+          manual?h("div",{style:{marginTop:"4px"}},h("span",{className:"pill "+(convIsFerie(manual.kind)?"fdebt":"rol")},convLabel(manual.kind))):null,
+          permits.length?h("div",{style:{marginTop:"4px",display:"flex",gap:"4px",flexWrap:"wrap"}},
+            permits.map(function(pm,pi){ return h("span",{key:pi,className:"pill",style:{background:"#eef0fb",color:"#3949ab"}},
+              permitCode(pm.kind)+(pm.hours?(" "+fmtH05(parseFloat(pm.hours)).replace("h","")+"h"):"")); })):null
+        ));
+
+        if(t==="work"){
+          var mk2=function(f){return h("input",{className:"time-in",type:"time",disabled:readOnly,value:(getEntry(date)&&getEntry(date)[f])||"",
+            onChange:function(ev){update(date,f,ev.target.value);}});};
+          var wrap=function(a,b){return h("td",{key:a},mk2(a),h("div",{style:{height:"6px"}}),mk2(b));};
+          c.push(wrap("mIn","aIn"));
+          c.push(wrap("mOut","aOut"));
+          var wm=workedMinutes(getEntry(date));
+          var rolOn=rolAutoFor(emp,clo,getEntry(date));
+          var permMin=permitMinutesOf(getEntry(date));
+          var expDay=EXP-permMin; if(expDay<0)expDay=0;
+          // worked effettivo: ore reali, oppure 0 se non ci sono orari ma c'è un permesso
+          var effW = (wm!=null) ? wm : (permMin>0 ? 0 : null);
+          var bd = (effW!=null) ? dayBreakdown(effW,rolOn,expDay) : null;
+          c.push(showDaily ? h("td",{key:"hr",className:"hrs"},
+            wm!=null?fmtMin(wm):(permMin>0?"0h 00m":"—"),
+            permMin>0?h("div",{style:{fontSize:"11px",color:"#3949ab",fontWeight:600}},"prev. "+fmtMin(expDay)+" (perm.)"):null,
+            bd?h("div",{className:"sub",style:{color:bd.debt>0?"var(--debt)":(bd.credit>0?"var(--ok)":"var(--muted)")}},
+              bd.rol>0?("ROL "+fmtH05(bd.rol)+(bd.debt>0?" · deb "+fmtHM(bd.debt):"")):
+              (bd.credit>0?("+"+fmtMin(bd.credit)):(bd.debt>0?("deb "+fmtHM(bd.debt)):"in pari"))):null,
+            (effW!=null && effW<expDay && !readOnly)?h("div",{style:{marginTop:"4px"}},
+              h("button",{className:"btn ghost sm",style:{padding:"3px 8px",fontSize:"11.5px",color:rolOn?"var(--debt)":"var(--rol)"},
+                title:rolOn?"Disattiva il ROL automatico solo per questo giorno (diventa debito pieno)":"Riattiva il ROL automatico per questo giorno",
+                onClick:function(){toggleRolDay(date);}}, rolOn?"✕ ROL":"Attiva ROL")):null
+          ) : h("td",{key:"hr"}, ""));
+        } else {
+          c.push(h("td",{key:"abs",colSpan:3},h("span",{className:"pill "+(t==="festivo"?"festivo":(t==="lutto"?"lutto":(t==="ferie"?"ferie":(t==="malattia"?"malattia":"work"))))},(absCode(t)?absCode(t)+" · ":"")+absLabel(t))," ",h("span",{className:"hint"},"neutra")));
+        }
+        c.push(h("td",{key:"act"},
+          (t==="work"&&!readOnly)?h("button",{className:"btn stamp sm",onClick:function(){stamp(date);}},"🕒 Timbra"):null,
+          (isAdmin&&ec>0)?h("button",{className:"btn ghost sm",onClick:function(){props.onHistory(getEntry(date),date);}},"Storico"):null
+        ));
+        return c;
+      }
+    });
+
+    return h("div",{className:"card",style:{overflow:"auto",padding:"4px 14px 12px"}},
+      h("table",{className:"grid"},
+        h("colgroup",null,
+          h("col",{className:"c-day"}),h("col",{className:"c-type"}),
+          h("col",{className:"c-t"}),h("col",{className:"c-t"}),
+          h("col",{className:"c-hrs"}),h("col",{className:"c-act"})),
+        h("thead",null,h("tr",null,
+          h("th",null,"Giorno"),h("th",null,"Tipo"),
+          h("th",null,"Entrata (matt./pom.)"),h("th",null,"Uscita (matt./pom.)"),
+          h("th",null,"Ore"),h("th",null,"Azioni"))),
+        h("tbody",null,rows)
+      )
+    );
+  }
+
+  /* ----- Storico modifiche (modale admin) ----- */
+  function HistoryModal(props){
+    var e=props.entry;
+    var vers=(e&&e.versions)||[];
+    return h("div",{className:"overlay",onClick:function(ev){if(ev.target.className==="overlay")props.onClose();}},
+      h("div",{className:"modal"},
+        h("div",{className:"mhead"},"Storico del "+props.date,h("div",{className:"spacer"}),
+          h("button",{className:"btn ghost sm",onClick:props.onClose},"Chiudi")),
+        h("div",{className:"mbody"},
+          vers.length?h("table",{className:"hist"},
+            h("thead",null,h("tr",null,h("th",null,"#"),h("th",null,"Quando"),h("th",null,"Tipo"),
+              h("th",null,"M.entra"),h("th",null,"M.esce"),h("th",null,"P.entra"),h("th",null,"P.esce"))),
+            h("tbody",null, vers.map(function(v,i){
+              return h("tr",{key:i},h("td",null,i===0?"originale":i),
+                h("td",null,new Date(v.ts).toLocaleString("it-IT")),
+                h("td",null,absLabel(v.type)),
+                h("td",null,v.mIn||"—"),h("td",null,v.mOut||"—"),h("td",null,v.aIn||"—"),h("td",null,v.aOut||"—"));
+            }))
+          ):h("div",{className:"hint"},"Nessuna modifica registrata."))
+      )
+    );
+  }
+
+  /* ----- Pannello conversioni / chiusura ----- */
+  function ClosurePanel(props){
+    var data=props.data, empId=props.empId, mKey=props.mKey;
+    var empMode=!!props.employeeMode;   // vista dipendente: niente chiudi/riapri/ROL-mese/report
+    var s=monthStats(empId,mKey,data);
+    var p=mKey.split("-"); var y=parseInt(p[0],10), m=parseInt(p[1],10)-1; var dim=daysInMonth(y,m);
+    var clo=data.closures[empId+"__"+mKey]||{items:[],closed:false,carryOut:0,rolAutoMonth:"default",snapshot:null};
+    var stDay=useState(mKey+"-01"),day=stDay[0],setDay=stDay[1];
+    var stKind=useState("rol_debito"),kind=stKind[0],setKind=stKind[1];
+    var mm=MESI[m];
+
+    function ensureClo(){var key=empId+"__"+mKey; if(!data.closures[key])data.closures[key]={items:[],closed:false,closedAt:null,carryOut:0,rolAutoMonth:"default",snapshot:null}; return data.closures[key];}
+    function add(){
+      var s=monthStats(empId,mKey,data); var date=day;
+      var isAbs=!!s.neutralByDate[date];                       // giorno non lavorativo (assenza o festività)
+      var hasAutoRol=(s.rolByDate[date]||0)>0;
+      var hasManualRol=(s.manualRolByDate[date]||0)>0;
+      var hasFD=!!s.manualFerieByDate[date];
+      var hasPerm=!!(s.permitsByDate[date]&&s.permitsByDate[date].length);
+      if(convIsFerie(kind)){
+        if(isAbs){ props.toast("Giorno non lavorativo: la ferie da debito va su un giorno di lavoro."); return; }
+        if(hasAutoRol||hasManualRol){ props.toast("Il giorno ha già ROL: non puoi metterci una ferie da debito."); return; }
+        if(hasPerm){ props.toast("Il giorno ha permessi: non puoi metterci una ferie da debito."); return; }
+        if(hasFD){ props.toast("Il giorno ha già una ferie da debito."); return; }
+      } else {
+        if(isAbs){ props.toast("Giorno non lavorativo: non puoi aggiungere ROL da debito su un'assenza."); return; }
+        if(hasFD){ props.toast("Il giorno ha una ferie da debito: non puoi aggiungere ROL."); return; }
+      }
+      pushUndo(data,{kind:"closure",empId:empId,mKey:mKey},"Aggiunta conversione");
+      var c=ensureClo(); c.items=c.items.concat([{date:day,kind:kind}]); saveClosure(data,empId,mKey); props.onChange(); props.toast("Conversione aggiunta"); }
+    function rem(i){ pushUndo(data,{kind:"closure",empId:empId,mKey:mKey},"Rimossa conversione");
+      var c=ensureClo(); c.items=c.items.filter(function(_,idx){return idx!==i;}); c.closed=false; c.closedAt=null; c.snapshot=null; saveClosure(data,empId,mKey); props.onChange(); }
+    function setRolMonth(v){ pushUndo(data,{kind:"closure",empId:empId,mKey:mKey},"ROL automatici (mese)");
+      var c=ensureClo(); c.rolAutoMonth=v; saveClosure(data,empId,mKey); props.onChange(); }
+    function closeMonth(){
+      if(s.missing.length){ props.onMissing(s.missing); return; }
+      pushUndo(data,{kind:"closure",empId:empId,mKey:mKey},"Chiusura mese");
+      var c=ensureClo();
+      c.snapshot=JSON.parse(JSON.stringify(computeMonthStats(empId,mKey,data))); // fotografia (opzione A)
+      c.carryOut=c.snapshot.netRunning;
+      c.closed=true; c.closedAt=new Date().toISOString();
+      saveClosure(data,empId,mKey); props.onChange(); props.toast("Mese chiuso e cristallizzato"); }
+    function reopen(){ pushUndo(data,{kind:"closure",empId:empId,mKey:mKey},"Riapertura mese");
+      var c=ensureClo(); c.closed=false; c.closedAt=null; c.carryOut=0; c.snapshot=null; saveClosure(data,empId,mKey); props.onChange(); }
+
+    var opts=[]; for(var d=1;d<=dim;d++){var dt=mKey+"-"+pad2(d),dow=new Date(y,m,d).getDay(); opts.push(h("option",{key:dt,value:dt},pad2(d)+" "+GBREVI[dow]));}
+
+    return h("div",{className:"card pad"},
+      h("div",{className:"row",style:{justifyContent:"space-between"}},
+        h("div",{style:{fontWeight:700,fontSize:"16px"}},empMode?"ROL / Ferie da debito":"Chiusura mese"),
+        clo.closed?h("span",{className:"badge closed"},"Chiuso"):h("span",{className:"badge none"},"Aperto")),
+      h("div",{className:"row",style:{marginTop:"12px",gap:"24px"}},
+        h("div",null,h("div",{className:"hint"},"Saldo del mese"),h("div",{style:{fontSize:"18px",fontWeight:700,color:s.netMonth<0?"var(--debt)":"var(--ok)"}},fmtSigned(s.netMonth))),
+        h("div",null,h("div",{className:"hint"},"Riportato dal mese prec."),h("div",{style:{fontSize:"18px",fontWeight:700}},fmtSigned(s.carryIn))),
+        h("div",null,h("div",{className:"hint"},s.netRunning<0?"Debito da coprire":"Credito"),h("div",{style:{fontSize:"18px",fontWeight:700,color:s.netRunning<0?"var(--debt)":"var(--ok)"}},s.netRunning<0?fmtMin(-s.netRunning):fmtMin(s.netRunning)))),
+      h("div",{className:"row",style:{marginTop:"14px",alignItems:"flex-end"}},
+        h("div",{className:"field",style:{margin:0}},
+          h("label",null,"ROL automatici (questo mese)"),
+          h("select",{className:"typesel",value:clo.rolAutoMonth||"default",disabled:clo.closed,
+            onChange:function(e){setRolMonth(e.target.value);}},
+            h("option",{value:"default"},"Come default dipendente"),
+            h("option",{value:"on"},"Attivi"),
+            h("option",{value:"off"},"Disattivati"))),
+        h("span",{className:"hint",style:{maxWidth:"360px"}},
+          "Vince su tutto l'eccezione per singolo giorno (pulsante ✕ ROL nella griglia).")),
+      h("div",{className:"hint",style:{marginTop:"14px"}},"Aggiungi ROL/Ferie da debito per ridurre il debito (verranno conteggiati come ROL e ferie normali nell'Excel):"),
+      clo.closed?null:h("div",{className:"conv-add"},
+        h("div",{className:"field",style:{margin:0}},h("label",null,"Giorno"),
+          h("select",{className:"typesel",value:day,onChange:function(e){setDay(e.target.value);}},opts)),
+        h("div",{className:"field",style:{margin:0}},h("label",null,"Conversione manuale"),
+          h("select",{className:"typesel",value:kind,onChange:function(e){setKind(e.target.value);}},
+            CONV.map(function(k){return h("option",{key:k.v,value:k.v},k.label);}))),
+        h("button",{className:"btn primary",onClick:add},"Aggiungi")),
+      clo.items.length?h("div",{className:"conv-list"}, clo.items.map(function(it,i){
+        var pp=it.date.split("-"),dd=parseInt(pp[2],10),dow=new Date(parseInt(pp[0],10),parseInt(pp[1],10)-1,dd).getDay();
+        return h("div",{className:"conv-item",key:i},
+          h("span",{className:"pill "+(convIsFerie(it.kind)?"fdebt":"rol")},convLabel(it.kind)),
+          h("span",{className:"grow"},"il "+pad2(dd)+" "+GIORNI[dow]),
+          clo.closed?null:h("button",{className:"btn ghost sm",onClick:function(){rem(i);}},"Rimuovi"));
+      })):null,
+      (s.missing.length && !empMode)?h("div",{className:"warn",style:{marginTop:"12px"}},
+        "Attenzione: "+s.missing.length+" giorni feriali non registrati ("+s.missing.join(", ")+"). Vanno compilati prima di chiudere."):null,
+      empMode?null:h("div",{className:"row",style:{marginTop:"16px"}},
+        clo.closed?h("button",{className:"btn",onClick:reopen},"Riapri mese")
+          :h("button",{className:"btn primary",onClick:closeMonth},"Chiudi il mese"),
+        clo.closed?h("button",{className:"btn primary",onClick:function(){exportExcel(data,mKey,props.toast);}},
+          "📊 Genera report Excel di "+mm+" "+y):null,
+        clo.closedAt?h("span",{className:"hint"},"Chiuso il "+new Date(clo.closedAt).toLocaleString("it-IT")):null)
+    );
+  }
+
+  /* ----- Pannello PERMESSI (assenze momentanee) — usato da dipendente e admin ----- */
+  function PermitsPanel(props){
+    var data=props.data, empId=props.empId, mKey=props.mKey, readOnly=props.readOnly;
+    var p=mKey.split("-"); var y=parseInt(p[0],10), m=parseInt(p[1],10)-1; var dim=daysInMonth(y,m);
+    var stDay=useState(mKey+"-01"),day=stDay[0],setDay=stDay[1];
+    var stKind=useState(PERMIT_TYPES[0].v),kind=stKind[0],setKind=stKind[1];
+    var stHrs=useState(""),hrs=stHrs[0],setHrs=stHrs[1];
+
+    function ensure(date){var key=empId+"__"+date; if(!data.attendance[key])data.attendance[key]={type:holidayName(date)?"festivo":"work",mIn:"",mOut:"",aIn:"",aOut:"",versions:[],permits:[]}; if(!data.attendance[key].permits)data.attendance[key].permits=[]; return data.attendance[key];}
+    function add(){
+      if(readOnly)return;
+      var s=monthStats(empId,mKey,data); var date=day;
+      if(s.neutralByDate[date]){ props.toast("Giorno non lavorativo: i permessi vanno su un giorno di lavoro."); return; }
+      if(s.manualFerieByDate[date]){ props.toast("Il giorno ha una ferie da debito: non puoi aggiungere permessi."); return; }
+      pushUndo(data,{kind:"month",empId:empId,mKey:mKey},"Aggiunto permesso");
+      var e=ensure(day); var hv=parseFloat(String(hrs).replace(",","."));
+      e.permits=e.permits.concat([{kind:kind, hours:(isNaN(hv)?0:hv)}]);
+      saveMonth(data,empId,mKey); props.onUndoChange&&props.onUndoChange(); props.onChange(); props.toast("Permesso aggiunto");
+      setHrs("");
+    }
+    function rem(date,idx){
+      if(readOnly)return;
+      pushUndo(data,{kind:"month",empId:empId,mKey:mKey},"Rimosso permesso");
+      var e=ensure(date); e.permits=e.permits.filter(function(_,i){return i!==idx;});
+      saveMonth(data,empId,mKey); props.onUndoChange&&props.onUndoChange(); props.onChange();
+    }
+    // elenco di tutti i permessi del mese
+    var list=[];
+    for(var d=1; d<=dim; d++){
+      var date=mKey+"-"+pad2(d); var e=data.attendance[empId+"__"+date];
+      if(e&&e.permits&&e.permits.length){ e.permits.forEach(function(pm,idx){ list.push({date:date,d:d,idx:idx,pm:pm}); }); }
+    }
+    var opts=[]; for(var dd=1;dd<=dim;dd++){var dt=mKey+"-"+pad2(dd),dow=new Date(y,m,dd).getDay(); opts.push(h("option",{key:dt,value:dt},pad2(dd)+" "+GBREVI[dow]));}
+
+    var stOpen=useState(false),open=stOpen[0],setOpen=stOpen[1];
+    return h("div",{className:"card pad"},
+      h("div",{style:{display:"flex",alignItems:"center",cursor:"pointer"},onClick:function(){setOpen(!open);}},
+        h("div",{style:{fontWeight:700,fontSize:"16px"}},"Permessi / assenze momentanee"),
+        list.length?h("span",{className:"pill",style:{marginLeft:"8px",background:"#eef0fb",color:"#3949ab"}},list.length):null,
+        h("div",{className:"spacer",style:{flex:1}}),
+        h("span",{style:{fontSize:"18px",color:"var(--muted)"}}, open?"▾":"▸")),
+      open?h("div",null,
+        h("div",{className:"hint",style:{marginTop:"4px"}},"Inseriti come i ROL. Le ore indicate sono giustificate: riducono le ore previste del giorno (giorno neutro se coperto)."),
+        readOnly?h("div",{className:"note",style:{marginTop:"10px"}},"Mese chiuso: in sola lettura."):h("div",{className:"conv-add"},
+          h("div",{className:"field",style:{margin:0}},h("label",null,"Giorno"),
+            h("select",{className:"typesel",value:day,onChange:function(e){setDay(e.target.value);}},opts)),
+          h("div",{className:"field",style:{margin:0}},h("label",null,"Tipo permesso"),
+            h("select",{className:"typesel",value:kind,onChange:function(e){setKind(e.target.value);}},
+              PERMIT_TYPES.map(function(k){return h("option",{key:k.v,value:k.v},k.code+" – "+k.label);}))),
+          h("div",{className:"field",style:{margin:0}},h("label",null,"Ore (facolt.)"),
+            h("input",{className:"time-in",style:{width:"80px"},placeholder:"es. 2",value:hrs,onChange:function(e){setHrs(e.target.value.replace(/[^0-9.,]/g,""));}})),
+          h("button",{className:"btn primary",onClick:add},"Aggiungi permesso")),
+        list.length?h("div",{className:"conv-list"}, list.map(function(it,i){
+          var dow=new Date(y,m,it.d).getDay();
+          return h("div",{className:"conv-item",key:i},
+            h("span",{className:"pill",style:{background:"#eef0fb",color:"#3949ab"}},permitCode(it.pm.kind)),
+            h("span",{className:"grow"}, permitLabel(it.pm.kind)+" — il "+pad2(it.d)+" "+GIORNI[dow]+(it.pm.hours?(" · "+fmtH05(parseFloat(it.pm.hours)).replace("h","")+"h"):"")),
+            readOnly?null:h("button",{className:"btn ghost sm",onClick:function(){rem(it.date,it.idx);}},"Rimuovi"));
+        })):h("div",{className:"hint",style:{marginTop:"10px"}},"Nessun permesso inserito questo mese.")
+      ):null
+    );
+  }
+
+  /* ----- Vista dipendente ----- */
+  function EmployeeView(props){
+    var data=props.data, emp=props.emp;
+    var now=new Date();
+    var cur0={y:now.getFullYear(),m:now.getMonth()};
+    var st=useState(cur0),cur=st[0],setCur=st[1];
+    var tk=useState(0),setTick=tk[1];
+    var hm0=useState(null),hist=hm0[0],setHist=hm0[1];
+    function rr(){ setTick(function(t){return t+1;}); }
+    var mKey=mKeyOf(cur.y,cur.m);
+    var stats=monthStats(emp.id,mKey,data);
+    function persist(){ pushUndo(data,{kind:"month",empId:emp.id,mKey:mKey},"Salvataggio "+MESI[cur.m]); commitVersions(data,emp.id,mKey); saveMonth(data,emp.id,mKey); props.onUndoChange(); rr(); props.toast("Salvato"); }
+    var backLimit = monthDiff(cur0,cur)>=2;       // max 2 mesi indietro
+    var fwdLimit  = monthDiff(cur,cur0)>=0;        // non oltre il mese corrente
+    var isClosed  = !!stats.closure.closed;
+
+    return h("div",{className:"wrap"},
+      h("div",{className:"row",style:{justifyContent:"space-between"}},
+        h(MonthNav,{year:cur.y,month:cur.m,prevDisabled:backLimit,nextDisabled:fwdLimit,
+          onPrev:function(){var d=new Date(cur.y,cur.m-1,1);setCur({y:d.getFullYear(),m:d.getMonth()});},
+          onNext:function(){var d=new Date(cur.y,cur.m+1,1);setCur({y:d.getFullYear(),m:d.getMonth()});}}),
+        h("button",{className:"btn primary",onClick:persist,disabled:isClosed},"Salva")),
+      backLimit?h("div",{className:"hint",style:{marginTop:"6px"}},"Puoi consultare al massimo i 2 mesi precedenti."):null,
+      empShowConsole(emp)?h(StatCards,{stats:stats}):h("div",{style:{height:"8px"}}),
+      isClosed?h("div",{className:"note"},"Mese chiuso dall'amministratore: in sola lettura."):null,
+      h(DayGrid,{data:data,empId:emp.id,mKey:mKey,isAdmin:false,showDaily:empShowDaily(emp),onChange:rr,toast:props.toast,onHistory:function(){}}),
+      h("div",{className:"row",style:{marginTop:"14px"}},
+        h("button",{className:"btn primary",onClick:persist,disabled:isClosed},"Salva"),
+        h("span",{className:"hint"},"Usa “🕒 Timbra” per registrare l'ora corrente; poi puoi correggere a mano.")),
+      h(Legend,null),
+      h(PermitsPanel,{data:data,empId:emp.id,mKey:mKey,readOnly:isClosed,onChange:rr,toast:props.toast,onUndoChange:props.onUndoChange}),
+      empCanConv(emp)?h("div",null,
+        h("div",{className:"sectitle"},"ROL / Ferie da debito"),
+        h(ClosurePanel,{data:data,empId:emp.id,mKey:mKey,employeeMode:true,onChange:rr,toast:props.toast,onMissing:function(){}})):null,
+      hist?h(HistoryModal,{entry:hist.entry,date:hist.date,onClose:function(){setHist(null);}}):null
+    );
+  }
+
+  /* ----- Vista amministratore ----- */
+  function AdminView(props){
+    var data=props.data;
+    var now=new Date();
+    var stCur=useState({y:now.getFullYear(),m:now.getMonth()}),cur=stCur[0],setCur=stCur[1];
+    var stSel=useState(""),sel=stSel[0],setSel=stSel[1];
+    var tk=useState(0),setTick=tk[1];
+    var hm0=useState(null),hist=hm0[0],setHist=hm0[1];
+    var miss=useState(null),missing=miss[0],setMissing=miss[1];
+    function rr(){ setTick(function(t){return t+1;}); }
+    var mKey=mKeyOf(cur.y,cur.m);
+    var emps=data.employees;
+    var selObj=emps.filter(function(e){return e.id===sel;})[0];
+    function persistMonth(){ if(selObj){ pushUndo(data,{kind:"month",empId:selObj.id,mKey:mKey},"Salvataggio "+selObj.cognome); commitVersions(data,selObj.id,mKey); saveMonth(data,selObj.id,mKey); props.onUndoChange(); rr(); props.toast("Salvato"); } }
+
+    var header=h("div",{className:"row",style:{justifyContent:"space-between",marginBottom:"6px"}},
+      h(MonthNav,{year:cur.y,month:cur.m,
+        onPrev:function(){var d=new Date(cur.y,cur.m-1,1);setCur({y:d.getFullYear(),m:d.getMonth()});},
+        onNext:function(){var d=new Date(cur.y,cur.m+1,1);setCur({y:d.getFullYear(),m:d.getMonth()});},
+        onToday:function(){var d=new Date();setCur({y:d.getFullYear(),m:d.getMonth()});}}),
+      h("div",{className:"row"},
+        h("button",{className:"btn",onClick:props.onManage},"Gestisci dipendenti"),
+        h("button",{className:"btn primary",onClick:function(){exportExcel(data,mKey,props.toast);}},"Esporta Excel")));
+
+    function closeAll(){
+      var notReady=[]; emps.forEach(function(e){ var st=monthStats(e.id,mKey,data); if(!st.closure.closed && st.missing.length) notReady.push(e.cognome+" "+e.nome+" ("+st.missing.length+")"); });
+      if(notReady.length){ props.toast("Giorni non registrati: "+notReady.join(", ")); return; }
+      if(!window.confirm("Chiudere il mese per TUTTI i dipendenti?")) return;
+      pushUndo(data,{kind:"closure_all",mKey:mKey},"Chiusura mese per tutti");
+      emps.forEach(function(e){ var key=e.id+"__"+mKey; if(!data.closures[key])data.closures[key]={items:[],closed:false,closedAt:null,carryOut:0,rolAutoMonth:"default",snapshot:null};
+        var c=data.closures[key]; if(c.closed) return;
+        c.snapshot=JSON.parse(JSON.stringify(computeMonthStats(e.id,mKey,data))); c.carryOut=c.snapshot.netRunning; c.closed=true; c.closedAt=new Date().toISOString(); saveClosure(data,e.id,mKey); });
+      props.onUndoChange(); rr(); props.toast("Mese chiuso per tutti");
+    }
+    function reopenAll(){
+      if(!window.confirm("Riaprire il mese per TUTTI i dipendenti?")) return;
+      pushUndo(data,{kind:"closure_all",mKey:mKey},"Riapertura mese per tutti");
+      emps.forEach(function(e){ var key=e.id+"__"+mKey; var c=data.closures[key]; if(!c)return; c.closed=false; c.closedAt=null; c.carryOut=0; c.snapshot=null; saveClosure(data,e.id,mKey); });
+      props.onUndoChange(); rr(); props.toast("Mese riaperto per tutti");
+    }
+    function Overview(){
+      var allClosed = emps.length>0 && emps.every(function(e){ return !!monthStats(e.id,mKey,data).closure.closed; });
+      var rows=emps.map(function(e){
+        var s=monthStats(e.id,mKey,data);
+        return h("tr",{key:e.id},
+          h("td",null,h("b",null,e.cognome+" "+e.nome)),
+          h("td",{className:"num"},fmtMin(s.workedTotal)),
+          h("td",{className:"num"},fmtH05(s.rolAuto)),
+          h("td",{className:"num"},fmtH05(s.rolManual)),
+          h("td",{className:"num"},s.ferie),
+          h("td",{className:"num"},s.ferieDebito),
+          h("td",{className:"num"},s.malattia),
+          h("td",{className:"num"},(s.absDays-(s.ferie||0)-(s.malattia||0))),
+          h("td",{className:"num"},s.permitCount||0),
+          h("td",{className:"num",style:{fontWeight:700,color:s.netRunning<0?"var(--debt)":"var(--ok)"}},fmtSigned(s.netRunning)),
+          h("td",null,s.closure.closed?h("span",{className:"badge closed"},"Chiuso"):(s.missing.length?h("span",{className:"badge open"},s.missing.length+" da reg."):h("span",{className:"badge none"},"Aperto"))),
+          h("td",null,h("button",{className:"btn sm",onClick:function(){setSel(e.id);}},"Apri")));
+      });
+      return h("div",null,
+        h("div",{className:"card",style:{overflow:"auto"}},
+          h("table",{className:"ov"},
+            h("thead",null,h("tr",null,h("th",null,"Dipendente"),h("th",{className:"num"},"Ore lav."),h("th",{className:"num"},"ROL"),h("th",{className:"num"},"ROLdb"),
+              h("th",{className:"num"},"Ferie"),h("th",{className:"num"},"FERIEdb"),h("th",{className:"num"},"Malattia"),h("th",{className:"num"},"Altre ass."),h("th",{className:"num"},"Permessi"),h("th",{className:"num"},"Saldo"),h("th",null,"Stato"),h("th",null,""))),
+            h("tbody",null,rows.length?rows:h("tr",null,h("td",{colSpan:12,className:"hint"},"Nessun dipendente. Aggiungili dal pulsante in alto.")))),),
+        emps.length?h("div",{className:"row",style:{justifyContent:"flex-end",marginTop:"10px",gap:"8px"}},
+          allClosed?h("button",{className:"btn",onClick:reopenAll},"Riapri il mese per tutti")
+                   :h("button",{className:"btn primary",onClick:closeAll},"Chiudi il mese per tutti")):null);
+    }
+
+    if(!selObj) return h("div",{className:"wrap"},header,Overview(),
+      missing?h(MissingModal,{days:missing,onClose:function(){setMissing(null);}}):null);
+
+    var s=monthStats(selObj.id,mKey,data);
+    return h("div",{className:"wrap"},header,
+      h("div",{className:"row",style:{marginBottom:"12px"}},
+        h("button",{className:"btn ghost sm",onClick:function(){setSel("");}},"‹ Panoramica"),
+        h("div",{style:{fontWeight:700,fontSize:"18px"}},selObj.cognome+" "+selObj.nome)),
+      h(StatCards,{stats:s}),
+      h("div",{className:"sectitle"},"Foglio presenze (modificabile)"),
+      h(DayGrid,{data:data,empId:selObj.id,mKey:mKey,isAdmin:true,onChange:rr,toast:props.toast,onHistory:function(entry,date){setHist({entry:entry,date:date});}}),
+      h("div",{className:"row",style:{marginTop:"12px"}},h("button",{className:"btn primary",onClick:persistMonth,disabled:!!s.closure.closed},"Salva"),h(Legend,null)),
+      h(PermitsPanel,{data:data,empId:selObj.id,mKey:mKey,readOnly:!!s.closure.closed,onChange:rr,toast:props.toast,onUndoChange:props.onUndoChange}),
+      h("div",{className:"sectitle"},"Conversioni & chiusura"),
+      h(ClosurePanel,{data:data,empId:selObj.id,mKey:mKey,onChange:rr,toast:props.toast,onMissing:function(days){setMissing(days);}}),
+      hist?h(HistoryModal,{entry:hist.entry,date:hist.date,onClose:function(){setHist(null);}}):null,
+      missing?h(MissingModal,{days:missing,onClose:function(){setMissing(null);}}):null
+    );
+  }
+
+  function MissingModal(props){
+    return h("div",{className:"overlay",onClick:function(e){if(e.target.className==="overlay")props.onClose();}},
+      h("div",{className:"modal",style:{maxWidth:"460px"}},
+        h("div",{className:"mhead"},"Giorni da registrare"),
+        h("div",{className:"mbody"},
+          h("p",null,"Non puoi chiudere il mese: questi giorni feriali non sono ancora registrati."),
+          h("p",{style:{fontWeight:700,fontSize:"16px"}},"Giorni: "+props.days.join(", ")),
+          h("p",{className:"hint"},"Compila gli orari (o marca ferie/malattia/lutto) e poi chiudi il mese.")),
+        h("div",{className:"mfoot"},h("button",{className:"btn primary",onClick:props.onClose},"Ho capito"))));
+  }
+
+  /* ----- Gestione dipendenti ----- */
+  function ManageEmployees(props){
+    var data=props.data;
+    var tk=useState(0),setTick=tk[1]; function rr(){setTick(function(t){return t+1;});}
+    var sN=useState(""),nome=sN[0],setN=sN[1];
+    var sC=useState(""),cog=sC[0],setC=sC[1];
+    var sP=useState(""),pin=sP[0],setP=sP[1];
+    function add(){ if(!nome.trim()||!cog.trim()||!/^\d{4}$/.test(pin)){props.toast("Servono nome, cognome e PIN di 4 cifre");return;}
+      pushUndo(data,{kind:"config"},"Aggiunto dipendente"); var id="e"+Date.now().toString(36)+Math.floor(Math.random()*1000);
+      data.employees=data.employees.concat([{id:id,nome:nome.trim(),cognome:cog.trim(),pin:pin,rolAuto:true,permConsole:true,permDaily:true,permConv:false}]); saveConfig(data); props.onUndoChange();
+      setN("");setC("");setP(""); rr(); props.toast("Dipendente aggiunto"); }
+    function del(id){ if(!window.confirm("Rimuovere il dipendente? Lo storico resta salvato.")) return;
+      pushUndo(data,{kind:"config"},"Rimosso dipendente"); data.employees=data.employees.filter(function(e){return e.id!==id;}); saveConfig(data); props.onUndoChange(); rr(); }
+    function chPin(id){ var np=window.prompt("Nuovo PIN (4 cifre):"); if(np==null)return; if(!/^\d{4}$/.test(np)){props.toast("PIN non valido");return;}
+      pushUndo(data,{kind:"config"},"Cambio PIN"); data.employees=data.employees.map(function(e){return e.id===id?Object.assign({},e,{pin:np}):e;}); saveConfig(data); props.onUndoChange(); rr(); props.toast("PIN aggiornato"); }
+    function byId(id){ for(var i=0;i<data.employees.length;i++) if(data.employees[i].id===id) return data.employees[i]; return null; }
+    function setEmp(id,patch,label){ pushUndo(data,{kind:"config"},label||"Modifica dipendente");
+      data.employees=data.employees.map(function(e){return e.id===id?Object.assign({},e,patch):e;}); saveConfig(data); props.onUndoChange(); rr(); }
+    function toggleRol(id){ var e=byId(id); setEmp(id,{rolAuto: e.rolAuto===false?true:false},"ROL automatici dipendente"); }
+    function toggleConsole(id){ var e=byId(id); setEmp(id,{permConsole: !empShowConsole(e)},"Console riepilogo"); }
+    function toggleDaily(id){ var e=byId(id);
+      if(empShowDaily(e) && empCanConv(e)){ props.toast("Le Conversioni sono attive: il dettaglio giornaliero deve restare visibile."); return; }
+      setEmp(id,{permDaily: !empShowDaily(e)},"Dettaglio giornaliero"); }
+    function toggleConv(id){ var e=byId(id); var nv=!empCanConv(e);
+      setEmp(id, nv?{permConv:true,permDaily:true}:{permConv:false}, "Conversioni dipendente"); }
+    function tbtn(label,on,onClick){ return h("button",{className:"btn sm",
+      style:{background:on?"#e7f3f1":"#f1f3f5",color:on?"var(--rol)":"var(--muted)",borderColor:on?"#cfe6e6":"var(--line)"},onClick:onClick}, label+": "+(on?"Sì":"No")); }
+    return h("div",{className:"overlay",onClick:function(e){if(e.target.className==="overlay")props.onClose();}},
+      h("div",{className:"modal"},
+        h("div",{className:"mhead"},"Gestione dipendenti",h("div",{className:"spacer"}),h("button",{className:"btn ghost sm",onClick:props.onClose},"Chiudi")),
+        h("div",{className:"mbody"},
+          data.employees.length?data.employees.map(function(e){
+            var rolOn=e.rolAuto!==false;
+            return h("div",{className:"emp-row",key:e.id,style:{flexWrap:"wrap"}},
+              h("div",{className:"grow",style:{minWidth:"160px"}},h("b",null,e.cognome+" "+e.nome)," ",h("span",{className:"hint"},"PIN ••••")),
+              tbtn("ROL auto",rolOn,function(){toggleRol(e.id);}),
+              tbtn("Console",empShowConsole(e),function(){toggleConsole(e.id);}),
+              tbtn("Dettaglio",empShowDaily(e),function(){toggleDaily(e.id);}),
+              tbtn("Conversioni",empCanConv(e),function(){toggleConv(e.id);}),
+              h("button",{className:"btn sm",onClick:function(){chPin(e.id);}},"PIN"),
+              h("button",{className:"btn danger sm",onClick:function(){del(e.id);}},"Rimuovi"));
+          }):h("div",{className:"hint"},"Nessun dipendente ancora."),
+          h("div",{className:"hint",style:{marginTop:"8px"}},"Console = riepilogo ore in alto · Dettaglio = riepilogo accanto agli orari · Conversioni = il dipendente può aggiungersi ROL/ferie da debito."),
+          h("div",{className:"sectitle"},"Aggiungi dipendente"),
+          h("div",{className:"row"},
+            h("input",{className:"time-in",style:{width:"140px"},placeholder:"Nome",value:nome,onChange:function(e){setN(e.target.value);}}),
+            h("input",{className:"time-in",style:{width:"140px"},placeholder:"Cognome",value:cog,onChange:function(e){setC(e.target.value);}}),
+            h("input",{className:"time-in",style:{width:"90px"},placeholder:"PIN",maxLength:4,value:pin,onChange:function(e){setP(e.target.value.replace(/\D/g,""));}}),
+            h("button",{className:"btn primary sm",onClick:add},"Aggiungi"))),
+        h("div",{className:"mfoot"},h("button",{className:"btn",onClick:props.onClose},"Fatto"))));
+  }
+
+  /* ----- Login ----- */
+  function BrandHeader(props){
+    var compact=props&&props.compact;
+    var er=useState(false),imgErr=er[0],setImgErr=er[1];
+    return h("div",{style:{display:"flex",alignItems:"center",gap:compact?"10px":"14px"}},
+      imgErr
+        ? h("div",{style:{fontWeight:900,fontStyle:"italic",letterSpacing:"1px",fontSize:compact?"18px":"30px",color:"#1c1c1c"}},
+            "REPARTO",h("span",{style:{color:"#e23b3b"}},"CORSE"))
+        : h("img",{src:"../../assets/logo.png",alt:"Repartocorse",
+            style:{height:(compact?"30px":"56px"),display:"block"},onError:function(){setImgErr(true);}}),
+      compact?null:h("div",{style:{fontSize:"13px",letterSpacing:"2px",color:"var(--muted)",fontWeight:600,
+        fontFamily:"'Segoe UI',system-ui,-apple-system,sans-serif"}},"GESTIONE ORARI DI ATTIVITÀ")
+    );
+  }
+  function Login(props){
+    var data=props.data;
+    var sT=useState("dip"),tab=sT[0],setTab=sT[1];
+    var sS=useState(""),sel=sS[0],setSel=sS[1];
+    var sP=useState(""),pin=sP[0],setPin=sP[1];
+    var sE=useState(""),err=sE[0],setErr=sE[1];
+    function go(){ setErr("");
+      if(tab==="admin"){ if(pin===data.adminPin) props.onLogin({role:"admin"}); else setErr("PIN amministratore errato."); }
+      else{ var e=data.employees.filter(function(x){return x.id===sel;})[0];
+        if(!e){setErr("Seleziona un dipendente.");return;} if(e.pin===pin) props.onLogin({role:"emp",empId:e.id}); else setErr("PIN errato."); } }
+    return h("div",{className:"login-wrap"},h("div",{className:"login card pad"},
+      h(BrandHeader,null),
+      h("p",{className:"sub"},firebaseReady?"Collegato al database condiviso.":"Modalità locale (questo dispositivo)."),
+      h("div",{className:"tabs"},
+        h("button",{className:tab==="dip"?"active":"",onClick:function(){setTab("dip");setErr("");}},"Staff"),
+        h("button",{className:tab==="admin"?"active":"",onClick:function(){setTab("admin");setErr("");}},"Amministratore")),
+      err?h("div",{className:"err"},err):null,
+      tab==="dip"?h("div",{className:"field"},h("label",null,"Staff"),
+        h("select",{value:sel,onChange:function(e){setSel(e.target.value);}},
+          h("option",{value:""},"— seleziona —"),
+          data.employees.map(function(e){return h("option",{key:e.id,value:e.id},e.cognome+" "+e.nome);})),
+        data.employees.length===0?h("div",{className:"hint",style:{marginTop:"6px"}},"Nessuno nello staff. Accedi come amministratore (PIN iniziale 0000)."):null)
+        :(data.adminPin==="0000"?h("div",{className:"note"},"PIN amministratore iniziale: 0000 — cambialo dopo l'accesso."):null),
+      h("div",{className:"field"},h("label",null,"PIN"),
+        h("input",{className:"pininput",type:"password",inputMode:"numeric",maxLength:8,value:pin,
+          onChange:function(e){setPin(e.target.value.replace(/\D/g,""));},
+          onKeyDown:function(e){if(e.key==="Enter")go();}})),
+      h("button",{className:"btn primary",style:{width:"100%"},onClick:go},"Accedi")));
+  }
+
+  /* ============================================================================
+     EXPORT EXCEL — formato a matrice (come immagine):
+     Tabella ROL (ore/giorno) + Tabella Ferie (giorni), lutto evidenziato verde.
+     Fogli extra: Riepilogo e Registro conversioni.
+     ========================================================================== */
+  function exportExcel(data, mKey, toast){
+    if(typeof XLSX==="undefined"){ toast("Libreria Excel non caricata"); return; }
+    var p=mKey.split("-"); var y=parseInt(p[0],10), m=parseInt(p[1],10)-1; var dim=daysInMonth(y,m);
+    var emps=data.employees;
+    var meseLabel=MESI[m].charAt(0).toUpperCase()+MESI[m].slice(1);
+    var wb=XLSX.utils.book_new();
+
+    var GREENFILL={patternType:"solid",fgColor:{rgb:"C6E6C6"}};
+    var BOLD={font:{bold:true}};
+    var HEAD={font:{bold:true},alignment:{horizontal:"center"}};
+    var HEADL={font:{bold:true},alignment:{horizontal:"left"}};   // titolo allineato a sinistra
+    var BLUE="1F6FC0", BLACK="000000";
+    function eColor(idx){ return idx%2===0?BLUE:BLACK; }
+    function st(idx,o){ o=o||{}; var s={font:{color:{rgb:eColor(idx)}}}; if(o.bold)s.font.bold=true;
+      if(o.center)s.alignment={horizontal:"center"}; if(o.left)s.alignment={horizontal:"left"}; if(o.green)s.fill=GREENFILL; return s; }
+
+    // precompute stats
+    var statsByEmp={}; emps.forEach(function(e){ statsByEmp[e.id]=monthStats(e.id,mKey,data); });
+
+    // valori per-giorno (riusati da tabelle e riassunto)
+    function cellRol(s,date,weekend){
+      var rolHere=(s.rolByDate[date]||0)+(s.manualRolByDate[date]||0);
+      if(rolHere>0) return fmtH05(rolHere).replace("h","");
+      if(s.neutralByDate[date]) return "";
+      if(weekend) return "";
+      return "/";
+    }
+    function cellAbs(s,date){
+      var n=s.neutralByDate[date];
+      if(n && isAbsence(n)) return {v:absCode(n)||"", green:n==="lutto"};
+      if(s.manualFerieByDate[date]) return {v:"F", green:false};
+      return {v:"", green:false};
+    }
+    function cellPerm(s,date){
+      var perms=s.permitsByDate[date];
+      if(perms&&perms.length) return perms.map(function(pm){ var hh=parseFloat(pm.hours); return permitCode(pm.kind)+((!isNaN(hh)&&hh>0)?(" "+fmtH05(hh).replace("h","")):""); }).join("+");
+      return "";
+    }
+
+    // ---- Foglio MATRICE ----
+    var aoa=[]; var styleMap={};
+    function setStyle(r,c,s){ styleMap[r+","+c]=s; }
+    function titleRow(label){ var t=aoa.length; var row=[meseLabel]; for(var d=1;d<=dim;d++) row.push(d); row.push(label); aoa.push(row);
+      for(var c=0;c<row.length;c++) setStyle(t,c,HEAD); setStyle(t,dim+1,HEADL); }
+
+    // Tabella 1: ROL
+    titleRow("TOTALE ROL MESE (ORE)");
+    emps.forEach(function(e,idx){ var s=statsByEmp[e.id]; var r=aoa.length; var row=[e.cognome+" "+e.nome];
+      for(var d=1;d<=dim;d++){ var date=mKey+"-"+pad2(d); var dow=new Date(y,m,d).getDay(); var weekend=(dow===0||dow===6);
+        row.push(cellRol(s,date,weekend)); setStyle(r,d,st(idx,{center:true})); }
+      row.push(fmtH05(s.rolTotal).replace("h","")); setStyle(r,0,st(idx,{bold:true})); setStyle(r,dim+1,st(idx,{center:true,bold:true})); aoa.push(row); });
+    aoa.push([]); aoa.push([]);
+
+    // Tabella 2: ASSENZE GIORNO INTERO (codici)
+    titleRow("TOTALE ASSENZE G.INTERO (GIORNI)");
+    emps.forEach(function(e,idx){ var s=statsByEmp[e.id]; var r=aoa.length; var row=[e.cognome+" "+e.nome];
+      for(var d=1;d<=dim;d++){ var date=mKey+"-"+pad2(d); var ca=cellAbs(s,date); row.push(ca.v);
+        setStyle(r,d,st(idx,{center:true,green:ca.green,bold:ca.green})); }
+      row.push(s.absDays+s.ferieDebito); setStyle(r,0,st(idx,{bold:true})); setStyle(r,dim+1,st(idx,{center:true,bold:true})); aoa.push(row); });
+    aoa.push([]); aoa.push([]);
+
+    // Tabella 3: PERMESSI / ASSENZE MOMENTANEE (codici)
+    titleRow("TOTALE PERMESSI MESE (N.)");
+    emps.forEach(function(e,idx){ var s=statsByEmp[e.id]; var r=aoa.length; var row=[e.cognome+" "+e.nome];
+      for(var d=1;d<=dim;d++){ var date=mKey+"-"+pad2(d); row.push(cellPerm(s,date)); setStyle(r,d,st(idx,{center:true})); }
+      row.push(s.permitCount||0); setStyle(r,0,st(idx,{bold:true})); setStyle(r,dim+1,st(idx,{center:true,bold:true})); aoa.push(row); });
+    aoa.push([]); aoa.push([]);
+
+    // ---- RIASSUNTO PER DIPENDENTE (un blocco per persona) ----
+    var sTitle=aoa.length; aoa.push(["RIASSUNTO PER DIPENDENTE"]); setStyle(sTitle,0,HEADL);
+    aoa.push([]);
+    emps.forEach(function(e,idx){ var s=statsByEmp[e.id];
+      // intestazione giorni
+      var hr=aoa.length; var head=[meseLabel]; for(var d=1;d<=dim;d++) head.push(d); aoa.push(head);
+      for(var c=0;c<head.length;c++) setStyle(hr,c,HEAD);
+      // riga ROL (con nome)
+      var r1=aoa.length; var rowR=[e.cognome+" "+e.nome];
+      for(var d=1;d<=dim;d++){ var date=mKey+"-"+pad2(d),dow=new Date(y,m,d).getDay(),we=(dow===0||dow===6); rowR.push(cellRol(s,date,we)); setStyle(r1,d,st(idx,{center:true})); }
+      rowR.push(fmtH05(s.rolTotal).replace("h","")); rowR.push("TOTALE ROL MESE (ORE)");
+      setStyle(r1,0,st(idx,{bold:true})); setStyle(r1,dim+1,st(idx,{center:true,bold:true})); setStyle(r1,dim+2,st(idx,{bold:true,left:true})); aoa.push(rowR);
+      // riga ASSENZE
+      var r2=aoa.length; var rowA=[""];
+      for(var d=1;d<=dim;d++){ var date=mKey+"-"+pad2(d); var ca=cellAbs(s,date); rowA.push(ca.v); setStyle(r2,d,st(idx,{center:true,green:ca.green,bold:ca.green})); }
+      rowA.push(s.absDays+s.ferieDebito); rowA.push("TOTALE ASSENZE G.INTERO (GIORNI)");
+      setStyle(r2,dim+1,st(idx,{center:true,bold:true})); setStyle(r2,dim+2,st(idx,{bold:true,left:true})); aoa.push(rowA);
+      // riga PERMESSI
+      var r3=aoa.length; var rowP=[""];
+      for(var d=1;d<=dim;d++){ var date=mKey+"-"+pad2(d); rowP.push(cellPerm(s,date)); setStyle(r3,d,st(idx,{center:true})); }
+      rowP.push(s.permitCount||0); rowP.push("TOTALE PERMESSI MESE (N.)");
+      setStyle(r3,dim+1,st(idx,{center:true,bold:true})); setStyle(r3,dim+2,st(idx,{bold:true,left:true})); aoa.push(rowP);
+      aoa.push([]);
+    });
+
+    var ws=XLSX.utils.aoa_to_sheet(aoa);
+    for(var key in styleMap){ if(styleMap.hasOwnProperty(key)){ var rc=key.split(","),ref=XLSX.utils.encode_cell({r:parseInt(rc[0],10),c:parseInt(rc[1],10)}); if(ws[ref]) ws[ref].s=styleMap[key]; } }
+    var cols=[{wch:20}]; for(var i=0;i<dim;i++) cols.push({wch:5}); cols.push({wch:14}); cols.push({wch:34}); ws["!cols"]=cols;
+    XLSX.utils.book_append_sheet(wb, ws, meseLabel+" "+y);
+
+    // ---- Foglio LEGENDA (separato, verticale, allineato a sinistra) ----
+    var laoa=[["LEGENDA"]]; var legStyle={}; function lset(r,c,s){ legStyle[r+","+c]=s; }
+    lset(0,0,HEADL); laoa.push([]);
+    LEGEND_GROUPS.forEach(function(g){
+      var gr=laoa.length; laoa.push([g.t]); lset(gr,0,HEADL);     // titolo gruppo, grassetto sinistra
+      g.items.forEach(function(it){ laoa.push([it[0], it[1]]); });
+      laoa.push([]);                                              // riga vuota tra i gruppi
+    });
+    var wsL=XLSX.utils.aoa_to_sheet(laoa);
+    for(var k2 in legStyle){ if(legStyle.hasOwnProperty(k2)){ var rc2=k2.split(","),ref2=XLSX.utils.encode_cell({r:parseInt(rc2[0],10),c:parseInt(rc2[1],10)}); if(wsL[ref2]) wsL[ref2].s=legStyle[k2]; } }
+    wsL["!cols"]=[{wch:10},{wch:54}];
+    XLSX.utils.book_append_sheet(wb,wsL,"Legenda");
+
+    // ---- Foglio Riepilogo ----
+    var rie=[["Riepilogo — "+meseLabel+" "+y],[],
+      ["Dipendente","Ore lavorate","GG lavoro","ROL (ore)","Ferie (gg)","Malattia (gg)","Altre assenze (gg)","Permessi (n.)","Saldo riportato (h)","Saldo fine mese (h)","Stato"]];
+    emps.forEach(function(e){ var s=statsByEmp[e.id];
+      rie.push([e.cognome+" "+e.nome,(s.workedTotal/60).toFixed(2),s.workedDays,fmtH05(s.rolTotal).replace("h",""),
+        s.ferie+s.ferieDebito,s.malattia,(s.absDays-(s.ferie||0)-(s.malattia||0)),(s.permitCount||0),(s.carryIn/60).toFixed(2),(s.netRunning/60).toFixed(2),
+        s.closure.closed?"Chiuso":(s.missing.length?"Da registrare":"Aperto")]); });
+    var wsR=XLSX.utils.aoa_to_sheet(rie);
+    wsR["!cols"]=[{wch:22},{wch:12},{wch:9},{wch:10},{wch:9},{wch:11},{wch:16},{wch:11},{wch:16},{wch:16},{wch:14}];
+    XLSX.utils.book_append_sheet(wb,wsR,"Riepilogo");
+
+    // ---- Registro conversioni (report contestazioni) ----
+    var meseLow=MESI[m];
+    var reg=[["Registro conversioni di chiusura — "+meseLabel+" "+y],
+      ["Le ferie e i ROL «da debito» sono abbattimenti applicati a fine mese per ridurre il debito orario generato dagli orari effettivi di lavoro; gli orari dei giorni interessati restano invariati."],
+      [],
+      ["Dipendente","Giorno","Conversione","Ore","Effetto sul debito","Mese chiuso il"]];
+    emps.forEach(function(e){ var clo=data.closures[e.id+"__"+mKey];
+      if(clo&&clo.items&&clo.items.length) clo.items.forEach(function(it){
+        var pp=it.date.split("-"),dow=new Date(parseInt(pp[0],10),parseInt(pp[1],10)-1,parseInt(pp[2],10)).getDay();
+        reg.push([e.cognome+" "+e.nome, it.date+" ("+GIORNI[dow]+")", convLabel(it.kind),
+          (convMin(it.kind)/60).toFixed(2), "−"+fmtMin(convMin(it.kind))+" sul debito di "+meseLow,
+          clo.closedAt?new Date(clo.closedAt).toLocaleString("it-IT"):"(non chiuso)"]); }); });
+    // Riepilogo debito per dipendente: iniziale -> conversioni -> saldo finale
+    reg.push([]); reg.push(["RIEPILOGO DEBITO PER DIPENDENTE — "+meseLabel+" "+y]);
+    reg.push(["Dipendente","Debito iniziale (pre-conversioni)","Conversioni applicate","Saldo finale"]);
+    function balLabel(min){ if(min<0) return "Debito "+fmtMin(-min); if(min>0) return "Credito "+fmtMin(min); return "0h 00m"; }
+    emps.forEach(function(e){ var s=statsByEmp[e.id];
+      var initial=s.netRunning - s.offset;   // saldo prima delle conversioni
+      reg.push([e.cognome+" "+e.nome, balLabel(initial),
+        s.offset>0?("−"+fmtMin(s.offset)):"0h 00m", balLabel(s.netRunning)]); });
+    var wsReg=XLSX.utils.aoa_to_sheet(reg);
+    wsReg["!cols"]=[{wch:24},{wch:28},{wch:22},{wch:30},{wch:22},{wch:22}];
+    XLSX.utils.book_append_sheet(wb,wsReg,"Registro conversioni");
+
+    XLSX.writeFile(wb,"Presenze_"+mKey+".xlsx");
+    toast("Excel generato");
+  }
+
+  /* ============================================================================
+     ROOT
+     ========================================================================== */
+  function App(){
+    var sD=useState(null),data=sD[0],setData=sD[1];
+    var sS=useState(null),sess=sS[0],setSess=sS[1];
+    var sM=useState(false),manage=sM[0],setManage=sM[1];
+    var sT=useState(""),toastMsg=sT[0],setToastMsg=sT[1];
+    var sL=useState(true),loading=sL[0],setLoading=sL[1];
+    var sU=useState(0),undoLabel=sU[0],setUndoTick=sU[1]; // per ridisegnare il bottone undo
+    function toast(msg){ setToastMsg(msg); setTimeout(function(){setToastMsg("");},1800); }
+    function refreshUndo(){ setUndoTick(function(t){return t+1;}); }
+    useEffect(function(){ initFirebase(); loadAll(function(d){ setData(d); setLoading(false); }); },[]);
+    function doUndo(){ var lbl=applyUndo(data); if(lbl){ toast("Annullato: "+lbl); refreshUndo(); setData(Object.assign({},data)); } }
+    function changeAdminPin(){ var np=window.prompt("Nuovo PIN amministratore (4 cifre):"); if(np==null)return; if(!/^\d{4}$/.test(np)){toast("PIN non valido");return;} data.adminPin=np; saveConfig(data); toast("PIN aggiornato"); }
+
+    if(loading) return h("div",{className:"login-wrap"},h("div",{className:"hint"},"Caricamento…"));
+    if(!data) return h("div",{className:"login-wrap"},h("div",{className:"hint"},"Errore di caricamento."));
+    if(!sess) return h(Login,{data:data,onLogin:function(s){setSess(s);}});
+
+    var who, body;
+    if(sess.role==="admin"){ who=h("span",{className:"who"},"Accesso ",h("b",null,"Amministratore"));
+      body=h(AdminView,{data:data,toast:toast,onManage:function(){setManage(true);},onUndoChange:refreshUndo}); }
+    else{ var emp=data.employees.filter(function(e){return e.id===sess.empId;})[0];
+      if(!emp){ setSess(null); return null; }
+      who=h("span",{className:"who"},h("b",null,emp.cognome+" "+emp.nome));
+      body=h(EmployeeView,{data:data,emp:emp,toast:toast,onUndoChange:refreshUndo}); }
+
+    return h("div",null,
+      h("div",{className:"topbar"},
+        h(BrandHeader,{compact:true}),
+        h("small",{style:{color:"var(--muted)",marginLeft:"8px"}},firebaseReady?"· condiviso":"· locale"),
+        h("div",{className:"spacer"}),
+        h("button",{className:"btn ghost sm",onClick:doUndo,disabled:undoStack.length===0,title:"Annulla ultima azione"},
+          "↶ Annulla"+(undoStack.length?" ("+undoStack.length+")":"")),
+        who,
+        sess.role==="admin"?h("button",{className:"btn ghost sm",onClick:changeAdminPin},"PIN admin"):null,
+        h("button",{className:"btn sm",onClick:function(){setSess(null);}},"Esci")),
+      body,
+      manage?h(ManageEmployees,{data:data,onClose:function(){setManage(false);},toast:toast,onUndoChange:refreshUndo}):null,
+      toastMsg?h("div",{className:"toast"},toastMsg):null
+    );
+  }
+
+  ReactDOM.createRoot(document.getElementById("root")).render(h(App));
+})();
+</script>
+</body>
+</html>
