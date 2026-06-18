@@ -1064,13 +1064,17 @@ var FIREBASE_CONFIG = {
   function BrandHeader(props){
     var compact=props&&props.compact;
     var er=useState(false),imgErr=er[0],setImgErr=er[1];
-    return h("div",{style:{display:"flex",alignItems:"center",gap:compact?"10px":"14px"}},
+    if(compact){
+      return h("div",{style:{display:"flex",alignItems:"center",gap:"10px"}},
+        imgErr
+          ? h("div",{style:{fontWeight:900,fontStyle:"italic",letterSpacing:"1px",fontSize:"18px",color:"#1c1c1c"}},"REPARTO",h("span",{style:{color:"#e23b3b"}},"CORSE"))
+          : h("img",{src:"../../assets/logo.png",alt:"Repartocorse",style:{height:"30px",width:"auto",display:"block"},onError:function(){setImgErr(true);}}));
+    }
+    return h("div",{style:{display:"flex",flexDirection:"column",alignItems:"flex-start",gap:"4px",maxWidth:"100%"}},
       imgErr
-        ? h("div",{style:{fontWeight:900,fontStyle:"italic",letterSpacing:"1px",fontSize:compact?"18px":"30px",color:"#1c1c1c"}},
-            "REPARTO",h("span",{style:{color:"#e23b3b"}},"CORSE"))
-        : h("img",{src:"../../assets/logo.png",alt:"Repartocorse",
-            style:{height:(compact?"30px":"56px"),display:"block"},onError:function(){setImgErr(true);}}),
-      compact?null:h("div",{style:{fontSize:"13px",letterSpacing:"2px",color:"var(--muted)",fontWeight:600,
+        ? h("div",{style:{fontWeight:900,fontStyle:"italic",letterSpacing:"1px",fontSize:"30px",color:"#1c1c1c"}},"REPARTO",h("span",{style:{color:"#e23b3b"}},"CORSE"))
+        : h("img",{src:"../../assets/logo.png",alt:"Repartocorse",style:{width:"100%",maxWidth:"100%",height:"auto",display:"block"},onError:function(){setImgErr(true);}}),
+      h("div",{style:{fontSize:"13px",letterSpacing:"2px",color:"var(--muted)",fontWeight:600,
         fontFamily:"'Segoe UI',system-ui,-apple-system,sans-serif"}},"GESTIONE ORARI DI ATTIVITÀ")
     );
   }
