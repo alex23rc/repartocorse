@@ -482,6 +482,7 @@ var FIREBASE_CONFIG = {
   function saveConfig(data){
     if(!firebaseReady){ lsSave(data); return; }
     if(!dataLoaded||loadFailed) { console.warn("saveConfig bloccato: dati non caricati"); return; }
+    if(data.employees && data.employees.length>0) hadEmployees=true;   // appiccicoso: d'ora in poi proteggo la lista
     if((!data.employees||data.employees.length===0) && hadEmployees){ console.warn("saveConfig bloccato: rifiuto di azzerare la lista dipendenti"); return; }
     guardedSet("presenze2_config","main","cfg_main",{employees:data.employees,adminPin:data.adminPin},data);
   }
@@ -1121,7 +1122,9 @@ var FIREBASE_CONFIG = {
       data.employees=data.employees.concat([{id:id,nome:nome.trim(),cognome:cog.trim(),pin:pin,rolAuto:true,permConsole:true,permDaily:true,permConv:false}]); saveConfig(data); props.onUndoChange();
       setN("");setC("");setP(""); rr(); props.toast("Dipendente aggiunto"); }
     function del(id){ if(!window.confirm("Rimuovere il dipendente? Lo storico resta salvato.")) return;
-      pushUndo(data,{kind:"config"},"Rimosso dipendente"); data.employees=data.employees.filter(function(e){return e.id!==id;}); saveConfig(data); props.onUndoChange(); rr(); }
+      pushUndo(data,{kind:"config"},"Rimosso dipendente"); data.employees=data.employees.filter(function(e){return e.id!==id;});
+      if(data.employees.length===0) hadEmployees=false;   // rimozione volontaria dell'ultimo: consenti la scrittura
+      saveConfig(data); props.onUndoChange(); rr(); }
     function chPin(id){ var np=window.prompt("Nuovo PIN (4 cifre):"); if(np==null)return; if(!/^\d{4}$/.test(np)){props.toast("PIN non valido");return;}
       pushUndo(data,{kind:"config"},"Cambio PIN"); data.employees=data.employees.map(function(e){return e.id===id?Object.assign({},e,{pin:np}):e;}); saveConfig(data); props.onUndoChange(); rr(); props.toast("PIN aggiornato"); }
     function byId(id){ for(var i=0;i<data.employees.length;i++) if(data.employees[i].id===id) return data.employees[i]; return null; }
