@@ -113,6 +113,7 @@
   table.ov th,table.ov td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:left}
   table.ov th{font-size:11px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:700}
   table.ov th.num,table.ov td.num{text-align:center;font-variant-numeric:tabular-nums}
+  table.ov td.pres{text-align:center;width:26px;padding-left:8px;padding-right:0}
   table.ov tr:hover td{background:#fafbfc}
   .badge{padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700}
   .badge.open{background:var(--debt-bg);color:var(--debt)}
@@ -297,6 +298,19 @@ var FIREBASE_CONFIG = {
     var ai=parseHM(entry.aIn),ao=parseHM(entry.aOut); if(ai!=null&&ao!=null&&ao>ai){total+=ao-ai;any=true;}
     return any?total:null;
   }
+  /* stato presenza "ora": "in"=al lavoro ora, "out"=non al lavoro (uscito o assenza giornaliera), "none"=giornata vuota.
+     Considero solo i timbri il cui orario è GIÀ passato; quelli futuri (uscita pre-inserita) sono ignorati. */
+  function presenceToday(entry){
+    if(!entry) return "none";
+    if(entry.type && entry.type!=="work") return "out";   // ferie/malattia/qualsiasi assenza giornaliera = non al lavoro
+    var now=new Date(), nowMin=now.getHours()*60+now.getMinutes();
+    function past(v){ var t=parseHM(v); return (t!=null && t<=nowMin)?t:null; }
+    var mi=past(entry.mIn), mo=past(entry.mOut), ai=past(entry.aIn), ao=past(entry.aOut);
+    var last=null, lastKind=null;
+    [["in",mi],["out",mo],["in",ai],["out",ao]].forEach(function(p){ if(p[1]!=null && (last==null || p[1]>=last)){ last=p[1]; lastKind=p[0]; } });
+    if(lastKind==null) return "none";   // giorno di lavoro senza timbri (o non ancora iniziato)
+    return lastKind==="in" ? "in" : "out";
+  }
   /* scomposizione: 'expected' = ore previste del giorno (ridotte dai permessi giustificati).
      Se ROL attivo -> ROL in step 0,5h + debito (resto <30min); se ROL off -> scarto = debito pieno. */
   function dayBreakdown(worked, rolAutoOn, expected){
@@ -411,6 +425,10 @@ var FIREBASE_CONFIG = {
      PERSISTENZA (Firestore se configurato, altrimenti localStorage)
      ========================================================================== */
   var firebaseReady=false, db=null;
+  var dataLoaded=false;     // true solo dopo un caricamento riuscito
+  var loadFailed=false;     // true se il caricamento da Firestore è fallito
+  var hadEmployees=false;   // abbiamo (o dobbiamo avere) dei dipendenti -> non sovrascrivere con lista vuota
+  var docRev={};            // revisione conosciuta di ogni documento (anti-sovrascrittura)
   function initFirebase(){
     try{
       if(FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey.indexOf("INCOLLA")===-1){
@@ -426,34 +444,71 @@ var FIREBASE_CONFIG = {
 
   function loadAll(cb){
     if(firebaseReady){
-      var data=emptyData();
+      var data=emptyData(); var err=false;
       var p1=db.collection("presenze2_config").doc("main").get().then(function(doc){
-        if(doc.exists){var c=doc.data(); data.employees=c.employees||[]; data.adminPin=c.adminPin||"0000";}
-      });
+        if(doc.exists){var c=doc.data(); data.employees=c.employees||[]; data.adminPin=c.adminPin||"0000"; docRev["cfg_main"]=c.rev||0;}
+      }).catch(function(e){console.error("config:",e); err=true;});
       var p2=db.collection("presenze2_attendance").get().then(function(s){
-        s.forEach(function(doc){var dd=doc.data(),days=dd.days||{};
+        s.forEach(function(doc){var dd=doc.data(),days=dd.days||{}; docRev[doc.id]=dd.rev||0;
           for(var k in days) if(days.hasOwnProperty(k)) data.attendance[dd.empId+"__"+k]=days[k];});
-      });
+      }).catch(function(e){console.error("attendance:",e); err=true;});
       var p3=db.collection("presenze2_closures").get().then(function(s){
-        s.forEach(function(doc){var dd=doc.data();
+        s.forEach(function(doc){var dd=doc.data(); docRev[doc.id]=dd.rev||0;
           data.closures[dd.empId+"__"+dd.month]={items:dd.items||[],closed:!!dd.closed,closedAt:dd.closedAt||null,carryOut:dd.carryOut||0,rolAutoMonth:dd.rolAutoMonth||"default",snapshot:dd.snapshot||null};});
-      });
-      Promise.all([p1,p2,p3]).then(function(){cb(data);}).catch(function(e){console.error(e);cb(lsLoad()||emptyData());});
-    } else cb(lsLoad()||emptyData());
+      }).catch(function(e){console.error("closures:",e); err=true;});
+      Promise.all([p1,p2,p3]).then(function(){
+        if(err){ loadFailed=true; cb(null); return; }   // caricamento fallito: NON parto vuoto, blocco le scritture
+        dataLoaded=true; hadEmployees=(data.employees&&data.employees.length>0);
+        lsSave(data);                                    // copia locale "ultimo stato buono"
+        cb(data);
+      }).catch(function(e){ console.error(e); loadFailed=true; cb(null); });
+    } else { dataLoaded=true; cb(lsLoad()||emptyData()); }
   }
-  function saveConfig(data){ if(firebaseReady) db.collection("presenze2_config").doc("main").set({employees:data.employees,adminPin:data.adminPin}).catch(function(e){console.error(e);}); else lsSave(data); }
+
+  /* tutti i salvataggi su Firestore sono protetti: niente scritture finché i dati non sono caricati;
+     ogni documento porta una "rev" che, se cambiata altrove, fa scattare un avviso prima di sovrascrivere. */
+  function guardedSet(coll, id, revKey, payload, data){
+    var ref=db.collection(coll).doc(id);
+    ref.get().then(function(doc){
+      var cloudRev=doc.exists?(doc.data().rev||0):0;
+      var myRev=docRev[revKey];
+      if(doc.exists && myRev!=null && cloudRev!==myRev){
+        if(!window.confirm("Questi dati sono stati modificati da un altro accesso nel frattempo.\n\nOK = sovrascrivi con le TUE modifiche.\nAnnulla = non salvo (ricarica la pagina per vedere i dati aggiornati).")) return;
+      }
+      var newRev=cloudRev+1;
+      ref.set(Object.assign({},payload,{rev:newRev})).then(function(){ docRev[revKey]=newRev; lsSave(data); }).catch(function(e){console.error(e);});
+    }).catch(function(e){ console.error("scrittura annullata (lettura fallita):",e); });
+  }
+  function saveConfig(data){
+    if(!firebaseReady){ lsSave(data); return; }
+    if(!dataLoaded||loadFailed) { console.warn("saveConfig bloccato: dati non caricati"); return; }
+    if((!data.employees||data.employees.length===0) && hadEmployees){ console.warn("saveConfig bloccato: rifiuto di azzerare la lista dipendenti"); return; }
+    guardedSet("presenze2_config","main","cfg_main",{employees:data.employees,adminPin:data.adminPin},data);
+  }
   function saveMonth(data, empId, mKey){
-    if(firebaseReady){
-      var days={}, p=mKey.split("-"), dim=daysInMonth(parseInt(p[0],10),parseInt(p[1],10)-1);
-      for(var d=1;d<=dim;d++){var date=mKey+"-"+pad2(d),e=data.attendance[empId+"__"+date]; if(e)days[date]=e;}
-      db.collection("presenze2_attendance").doc("att_"+empId+"_"+mKey).set({empId:empId,month:mKey,days:days}).catch(function(e){console.error(e);});
-    } else lsSave(data);
+    if(!firebaseReady){ lsSave(data); return; }
+    if(!dataLoaded||loadFailed){ console.warn("saveMonth bloccato: dati non caricati"); return; }
+    var days={}, p=mKey.split("-"), dim=daysInMonth(parseInt(p[0],10),parseInt(p[1],10)-1);
+    for(var d=1;d<=dim;d++){var date=mKey+"-"+pad2(d),e=data.attendance[empId+"__"+date]; if(e)days[date]=e;}
+    var id="att_"+empId+"_"+mKey;
+    guardedSet("presenze2_attendance",id,id,{empId:empId,month:mKey,days:days},data);
   }
   function saveClosure(data, empId, mKey){
-    if(firebaseReady){
-      var c=data.closures[empId+"__"+mKey]||{items:[],closed:false,closedAt:null,carryOut:0,rolAutoMonth:"default",snapshot:null};
-      db.collection("presenze2_closures").doc("clo_"+empId+"_"+mKey).set({empId:empId,month:mKey,items:c.items,closed:c.closed,closedAt:c.closedAt||null,carryOut:c.carryOut||0,rolAutoMonth:c.rolAutoMonth||"default",snapshot:c.snapshot||null}).catch(function(e){console.error(e);});
-    } else lsSave(data);
+    if(!firebaseReady){ lsSave(data); return; }
+    if(!dataLoaded||loadFailed){ console.warn("saveClosure bloccato: dati non caricati"); return; }
+    var c=data.closures[empId+"__"+mKey]||{items:[],closed:false,closedAt:null,carryOut:0,rolAutoMonth:"default",snapshot:null};
+    var id="clo_"+empId+"_"+mKey;
+    guardedSet("presenze2_closures",id,id,{empId:empId,month:mKey,items:c.items,closed:c.closed,closedAt:c.closedAt||null,carryOut:c.carryOut||0,rolAutoMonth:c.rolAutoMonth||"default",snapshot:c.snapshot||null},data);
+  }
+  /* riscrive l'intero dataset su Firestore (usato da Import e dall'annulla-import) */
+  function pushAllToCloud(data){
+    if(!firebaseReady){ lsSave(data); return; }
+    if(!dataLoaded||loadFailed){ return; }
+    saveConfig(data);
+    var months={}; for(var k in data.attendance){ if(!data.attendance.hasOwnProperty(k))continue; var pp=k.split("__"); months[pp[0]+"__"+pp[1].slice(0,7)]=true; }
+    for(var mk in months){ if(months.hasOwnProperty(mk)){ var q=mk.split("__"); saveMonth(data,q[0],q[1]); } }
+    for(var c in data.closures){ if(data.closures.hasOwnProperty(c)){ var cc=c.split("__"); saveClosure(data,cc[0],cc[1]); } }
+    lsSave(data);
   }
 
   /* ============================================================================
@@ -471,6 +526,7 @@ var FIREBASE_CONFIG = {
     if(scope.kind==="closure"){ var c=data.closures[scope.empId+"__"+scope.mKey]; return c?clone(c):null; }
     if(scope.kind==="closure_all"){ var o={}; data.employees.forEach(function(e){ var cc=data.closures[e.id+"__"+scope.mKey]; o[e.id]=cc?clone(cc):null; }); return o; }
     if(scope.kind==="config"){ return {employees:clone(data.employees), adminPin:data.adminPin}; }
+    if(scope.kind==="full"){ return {employees:clone(data.employees), attendance:clone(data.attendance), closures:clone(data.closures), adminPin:data.adminPin}; }
     return null;
   }
   function pushUndo(data, scope, label){
@@ -496,6 +552,9 @@ var FIREBASE_CONFIG = {
         saveClosure(data,e.id,s.mKey); });
     } else if(s.kind==="config"){
       data.employees=u.snap.employees; data.adminPin=u.snap.adminPin; saveConfig(data);
+    } else if(s.kind==="full"){
+      data.employees=u.snap.employees; data.attendance=u.snap.attendance; data.closures=u.snap.closures; data.adminPin=u.snap.adminPin;
+      hadEmployees=(data.employees&&data.employees.length>0); pushAllToCloud(data);
     }
     return u.label;
   }
@@ -923,12 +982,43 @@ var FIREBASE_CONFIG = {
     var selObj=emps.filter(function(e){return e.id===sel;})[0];
     function persistMonth(){ if(selObj){ pushUndo(data,{kind:"month",empId:selObj.id,mKey:mKey},"Salvataggio "+selObj.cognome); commitVersions(data,selObj.id,mKey); saveMonth(data,selObj.id,mKey); props.onUndoChange(); rr(); props.toast("Salvato"); } }
 
+    function doExport(){
+      var payload={app:"repartocorse-presenze",version:2,exportedAt:new Date().toISOString(),
+        data:{employees:data.employees,attendance:data.attendance,closures:data.closures,adminPin:data.adminPin}};
+      var blob=new Blob([JSON.stringify(payload,null,2)],{type:"application/json"});
+      var url=URL.createObjectURL(blob); var a=document.createElement("a");
+      var d=new Date(), name="presenze-backup-"+d.getFullYear()+pad2(d.getMonth()+1)+pad2(d.getDate())+"-"+pad2(d.getHours())+pad2(d.getMinutes())+".json";
+      a.href=url; a.download=name; document.body.appendChild(a); a.click(); document.body.removeChild(a); setTimeout(function(){URL.revokeObjectURL(url);},2000);
+      props.toast("Backup scaricato");
+    }
+    function pickImport(){
+      var inp=document.createElement("input"); inp.type="file"; inp.accept="application/json,.json";
+      inp.onchange=function(){ var f=inp.files&&inp.files[0]; if(!f)return; var rd=new FileReader();
+        rd.onload=function(){ try{ var parsed=JSON.parse(rd.result); doImport(parsed); }catch(e){ props.toast("File non leggibile (JSON non valido)"); } };
+        rd.readAsText(f); };
+      inp.click();
+    }
+    function doImport(parsed){
+      var d=(parsed&&parsed.data)?parsed.data:parsed;
+      if(!d || !Array.isArray(d.employees) || typeof d.attendance!=="object" || d.attendance===null || typeof d.closures!=="object" || d.closures===null){ props.toast("File non valido: non è un backup Presenze"); return; }
+      var nEmp=d.employees.length, nAtt=Object.keys(d.attendance).length, nClo=Object.keys(d.closures).length;
+      var quando=(parsed&&parsed.exportedAt)?("\nBackup del: "+new Date(parsed.exportedAt).toLocaleString("it-IT")):"";
+      if(!window.confirm("Ripristinare questo backup?"+quando+"\n\n• "+nEmp+" dipendenti\n• "+nAtt+" giorni di presenza\n• "+nClo+" mesi con chiusure/conversioni\n\nATTENZIONE: i dati ATTUALI verranno SOSTITUITI (potrai annullare con ↶).")) return;
+      pushUndo(data,{kind:"full"},"Ripristino backup");
+      data.employees=d.employees; data.attendance=d.attendance; data.closures=d.closures; data.adminPin=d.adminPin||data.adminPin||"0000";
+      hadEmployees=(data.employees&&data.employees.length>0);
+      pushAllToCloud(data);
+      props.onUndoChange(); rr(); props.toast("Backup ripristinato");
+    }
+
     var header=h("div",{className:"row",style:{justifyContent:"space-between",marginBottom:"6px"}},
       h(MonthNav,{year:cur.y,month:cur.m,
         onPrev:function(){var d=new Date(cur.y,cur.m-1,1);setCur({y:d.getFullYear(),m:d.getMonth()});},
         onNext:function(){var d=new Date(cur.y,cur.m+1,1);setCur({y:d.getFullYear(),m:d.getMonth()});},
         onToday:function(){var d=new Date();setCur({y:d.getFullYear(),m:d.getMonth()});}}),
       h("div",{className:"row"},
+        h("button",{className:"btn",onClick:doExport,title:"Scarica un file di backup con tutti i dati"},"⬇ Backup"),
+        h("button",{className:"btn",onClick:pickImport,title:"Ripristina i dati da un file di backup"},"⬆ Ripristina"),
         h("button",{className:"btn",onClick:props.onManage},"Gestisci dipendenti"),
         h("button",{className:"btn primary",onClick:function(){exportExcel(data,mKey,props.toast);}},"Esporta Excel")));
 
@@ -950,9 +1040,18 @@ var FIREBASE_CONFIG = {
     }
     function Overview(){
       var allClosed = emps.length>0 && emps.every(function(e){ return !!monthStats(e.id,mKey,data).closure.closed; });
+      var todayKey = now.getFullYear()+"-"+pad2(now.getMonth()+1)+"-"+pad2(now.getDate());
+      var isCurMonth = (mKey === now.getFullYear()+"-"+pad2(now.getMonth()+1));
+      function dot(state){
+        var col = state==="in"?"#2e9e6b":(state==="out"?"#d9534f":"#cfd4da");
+        var lbl = state==="in"?"Al lavoro ora":(state==="out"?"Non al lavoro (uscito o assente)":"Non ha timbrato oggi");
+        return h("span",{title:lbl,style:{display:"inline-block",width:"12px",height:"12px",borderRadius:"50%",background:col,boxShadow:"inset 0 0 0 1px rgba(0,0,0,.08)"}});
+      }
       var rows=emps.map(function(e){
         var s=monthStats(e.id,mKey,data);
+        var state = isCurMonth ? presenceToday(data.attendance[e.id+"__"+todayKey]) : "none";
         return h("tr",{key:e.id},
+          h("td",{className:"pres"}, isCurMonth?dot(state):null),
           h("td",null,h("b",null,e.cognome+" "+e.nome)),
           h("td",{className:"num"},fmtMin(s.workedTotal)),
           h("td",{className:"num"},fmtH05(s.rolAuto)),
@@ -967,11 +1066,13 @@ var FIREBASE_CONFIG = {
           h("td",null,h("button",{className:"btn sm",onClick:function(){setSel(e.id);}},"Apri")));
       });
       return h("div",null,
+        isCurMonth?h("div",{className:"hint",style:{margin:"0 2px 6px"}},
+          dot("in")," al lavoro ora · ",dot("out")," uscito o assente · ",dot("none")," nessun dato oggi"):null,
         h("div",{className:"card",style:{overflow:"auto"}},
           h("table",{className:"ov"},
-            h("thead",null,h("tr",null,h("th",null,"Dipendente"),h("th",{className:"num"},"Ore lav."),h("th",{className:"num"},"ROL"),h("th",{className:"num"},"ROLdb"),
+            h("thead",null,h("tr",null,h("th",null,""),h("th",null,"Dipendente"),h("th",{className:"num"},"Ore lav."),h("th",{className:"num"},"ROL"),h("th",{className:"num"},"ROLdb"),
               h("th",{className:"num"},"Ferie"),h("th",{className:"num"},"FERIEdb"),h("th",{className:"num"},"Malattia"),h("th",{className:"num"},"Altre ass."),h("th",{className:"num"},"Permessi"),h("th",{className:"num"},"Saldo"),h("th",null,"Stato"),h("th",null,""))),
-            h("tbody",null,rows.length?rows:h("tr",null,h("td",{colSpan:12,className:"hint"},"Nessun dipendente. Aggiungili dal pulsante in alto.")))),),
+            h("tbody",null,rows.length?rows:h("tr",null,h("td",{colSpan:13,className:"hint"},"Nessun dipendente. Aggiungili dal pulsante in alto.")))),),
         emps.length?h("div",{className:"row",style:{justifyContent:"flex-end",marginTop:"10px",gap:"8px"}},
           allClosed?h("button",{className:"btn",onClick:reopenAll},"Riapri il mese per tutti")
                    :h("button",{className:"btn primary",onClick:closeAll},"Chiudi il mese per tutti")):null);
@@ -1280,7 +1381,10 @@ var FIREBASE_CONFIG = {
     function changeAdminPin(){ var np=window.prompt("Nuovo PIN amministratore (4 cifre):"); if(np==null)return; if(!/^\d{4}$/.test(np)){toast("PIN non valido");return;} data.adminPin=np; saveConfig(data); toast("PIN aggiornato"); }
 
     if(loading) return h("div",{className:"login-wrap"},h("div",{className:"hint"},"Caricamento…"));
-    if(!data) return h("div",{className:"login-wrap"},h("div",{className:"hint"},"Errore di caricamento."));
+    if(!data) return h("div",{className:"login-wrap"},h("div",{className:"login card pad",style:{textAlign:"center"}},
+      h("div",{style:{fontWeight:700,fontSize:"16px",marginBottom:"8px"}},"Impossibile caricare i dati"),
+      h("div",{className:"hint",style:{marginBottom:"14px"}},"Non sono riuscito a leggere il database. I tuoi dati sono al sicuro: per evitare sovrascritture, il salvataggio è disattivato finché il caricamento non riesce. Controlla la connessione e ricarica la pagina."),
+      h("button",{className:"btn primary",onClick:function(){location.reload();}},"Ricarica")));
     if(!sess) return h(Login,{data:data,onLogin:function(s){setSess(s);}});
 
     var who, body;
