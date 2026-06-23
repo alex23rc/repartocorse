@@ -329,6 +329,7 @@ var FIREBASE_CONFIG = {
   function empCanConv(e){ return !!(e && e.permConv); }            // conversioni ROL/ferie da debito (default NO)
   function empShowConsole(e){ return !e || e.permConsole!==false; } // console riepilogo in alto (default SÌ)
   function empShowDaily(e){ return !e || e.permDaily!==false; }     // riepilogo accanto agli orari (default SÌ)
+  function empShowRiepilogo(e){ return !!(e && e.permRiepilogo); }  // riepilogo completo in fondo (default NO)
 
   /* ROL automatico a 3 livelli: giorno > mese > default dipendente (default = Sì) */
   function empRolDefault(emp){ return !emp || emp.rolAuto!==false; }
@@ -574,6 +575,19 @@ var FIREBASE_CONFIG = {
     }
   }
   function editCountOf(entry){ return (entry&&entry.versions)?Math.max(0,entry.versions.length-1):0; }
+  /* pulizia traccia modifiche: tiene solo l'ultima versione (= dato attuale) dei mesi più vecchi di "months".
+     Mantiene gli ultimi "months" mesi. Non tocca orari/presenze. Ritorna conteggio voci e mesi interessati. */
+  function historyCleanup(data, months, apply){
+    var now=new Date(), cutoff=now.getFullYear()*12+now.getMonth()-months;
+    var count=0, monthsAffected={};
+    for(var k in data.attendance){ if(!data.attendance.hasOwnProperty(k))continue;
+      var pp=k.split("__"), mk=pp[1].slice(0,7), idx=(+mk.slice(0,4))*12+(+mk.slice(5,7))-1;
+      if(idx<=cutoff){ var e=data.attendance[k];
+        if(e && e.versions && e.versions.length>1){ count++; monthsAffected[pp[0]+"__"+mk]=true;
+          if(apply) e.versions=[e.versions[e.versions.length-1]]; } }
+    }
+    return {count:count, months:Object.keys(monthsAffected)};
+  }
   function modText(n){ return n===0?"":(n===1?"modificato":"modificato "+n+" volte"); }
 
   /* ============================================================================
@@ -595,6 +609,15 @@ var FIREBASE_CONFIG = {
   }
   function StatCards(props){
     var s=props.stats;
+    if(props.employeeMode){
+      return h("div",{className:"stats"},
+        h("div",{className:"stat"},h("div",{className:"k"},"ROL utilizzati"),h("div",{className:"v"},fmtH05(s.rolTotal))),
+        h("div",{className:"stat"},h("div",{className:"k"},"Ferie utilizzate"),h("div",{className:"v"},String(s.ferie))),
+        h("div",{className:"stat"},h("div",{className:"k"},"Saldo riportato"),h("div",{className:"v",style:{color:s.carryIn<0?"var(--debt)":(s.carryIn>0?"var(--ok)":"inherit")}},fmtSigned(s.carryIn))),
+        h("div",{className:"stat "+(s.debtResidual>0?"debt":"ok")},h("div",{className:"k"},s.debtResidual>0?"Debito (cumulato)":"Credito (cumulato)"),
+          h("div",{className:"v"}, s.debtResidual>0?fmtMin(s.debtResidual):(s.creditResidual>0?fmtMin(s.creditResidual):"0h 00m")))
+      );
+    }
     return h("div",{className:"stats"},
       h("div",{className:"stat"},h("div",{className:"k"},"Ore lavorate"),h("div",{className:"v"},fmtMin(s.workedTotal))),
       h("div",{className:"stat"},h("div",{className:"k"},"ROL utilizzati"),h("div",{className:"v"},fmtH05(s.rolTotal))),
@@ -668,7 +691,7 @@ var FIREBASE_CONFIG = {
         var permits=(ent&&ent.permits)||[];
         c.push(h("td",{key:"d"},h("div",{className:"daycell"},
           h("span",{className:"dnum"},d),h("span",{className:"dname"},GBREVI[dow]),
-          ec>0?h("span",{className:"modbadge"},modText(ec)):null)));
+          (isAdmin&&ec>0)?h("span",{className:"modbadge"},modText(ec)):null)));
 
         // menu tipo a due livelli
         var mainVal = (t==="work"||t==="ferie"||t==="malattia"||t==="festivo")?t:"altro";
@@ -953,7 +976,7 @@ var FIREBASE_CONFIG = {
           onNext:function(){var d=new Date(cur.y,cur.m+1,1);setCur({y:d.getFullYear(),m:d.getMonth()});}}),
         h("button",{className:"btn primary",onClick:persist,disabled:isClosed},"Salva")),
       backLimit?h("div",{className:"hint",style:{marginTop:"6px"}},"Puoi consultare al massimo i 2 mesi precedenti."):null,
-      empShowConsole(emp)?h(StatCards,{stats:stats}):h("div",{style:{height:"8px"}}),
+      empShowConsole(emp)?h(StatCards,{stats:stats,employeeMode:true}):h("div",{style:{height:"8px"}}),
       isClosed?h("div",{className:"note"},"Mese chiuso dall'amministratore: in sola lettura."):null,
       h(DayGrid,{data:data,empId:emp.id,mKey:mKey,isAdmin:false,showDaily:empShowDaily(emp),onChange:rr,toast:props.toast,onHistory:function(){}}),
       h("div",{className:"row",style:{marginTop:"14px"}},
@@ -964,6 +987,7 @@ var FIREBASE_CONFIG = {
       empCanConv(emp)?h("div",null,
         h("div",{className:"sectitle"},"ROL / Ferie da debito"),
         h(ClosurePanel,{data:data,empId:emp.id,mKey:mKey,employeeMode:true,onChange:rr,toast:props.toast,onMissing:function(){}})):null,
+      empShowRiepilogo(emp)?h(SummaryBlock,{stats:stats,showWorked:false}):null,
       hist?h(HistoryModal,{entry:hist.entry,date:hist.date,onClose:function(){setHist(null);}}):null
     );
   }
@@ -977,6 +1001,7 @@ var FIREBASE_CONFIG = {
     var tk=useState(0),setTick=tk[1];
     var hm0=useState(null),hist=hm0[0],setHist=hm0[1];
     var miss=useState(null),missing=miss[0],setMissing=miss[1];
+    var cl0=useState(false),cleanup=cl0[0],setCleanup=cl0[1];
     function rr(){ setTick(function(t){return t+1;}); }
     var mKey=mKeyOf(cur.y,cur.m);
     var emps=data.employees;
@@ -1012,6 +1037,16 @@ var FIREBASE_CONFIG = {
       props.onUndoChange(); rr(); props.toast("Backup ripristinato");
     }
 
+    function runCleanup(months){
+      var info=historyCleanup(data,months,false);
+      if(info.count===0){ props.toast("Nessuna traccia da pulire oltre i "+months+" mesi"); setCleanup(false); return; }
+      if(!window.confirm("Pulire la cronologia delle modifiche più vecchia di "+months+" mesi?\n\n• "+info.count+" giorni interessati ("+info.months.length+" mesi)\n\nGli orari e le presenze NON vengono toccati: si azzera solo il \"modificato N volte\". Operazione annullabile con ↶.\n\nConsiglio: fai prima un Backup.")) return;
+      pushUndo(data,{kind:"full"},"Pulizia storico modifiche");
+      historyCleanup(data,months,true);
+      info.months.forEach(function(mk){ var q=mk.split("__"); saveMonth(data,q[0],q[1]); });
+      props.onUndoChange(); rr(); setCleanup(false); props.toast("Storico pulito: "+info.count+" giorni");
+    }
+
     var header=h("div",{className:"row",style:{justifyContent:"space-between",marginBottom:"6px"}},
       h(MonthNav,{year:cur.y,month:cur.m,
         onPrev:function(){var d=new Date(cur.y,cur.m-1,1);setCur({y:d.getFullYear(),m:d.getMonth()});},
@@ -1020,6 +1055,7 @@ var FIREBASE_CONFIG = {
       h("div",{className:"row"},
         h("button",{className:"btn",onClick:doExport,title:"Scarica un file di backup con tutti i dati"},"⬇ Backup"),
         h("button",{className:"btn",onClick:pickImport,title:"Ripristina i dati da un file di backup"},"⬆ Ripristina"),
+        h("button",{className:"btn",onClick:function(){setCleanup(true);},title:"Pulisci la cronologia delle modifiche più vecchia"},"🧹 Storico"),
         h("button",{className:"btn",onClick:props.onManage},"Gestisci dipendenti"),
         h("button",{className:"btn primary",onClick:function(){exportExcel(data,mKey,props.toast);}},"Esporta Excel")));
 
@@ -1080,7 +1116,8 @@ var FIREBASE_CONFIG = {
     }
 
     if(!selObj) return h("div",{className:"wrap"},header,Overview(),
-      missing?h(MissingModal,{days:missing,onClose:function(){setMissing(null);}}):null);
+      missing?h(MissingModal,{days:missing,onClose:function(){setMissing(null);}}):null,
+      cleanup?h(CleanupModal,{data:data,onRun:runCleanup,onClose:function(){setCleanup(false);}}):null);
 
     var s=monthStats(selObj.id,mKey,data);
     return h("div",{className:"wrap"},header,
@@ -1094,11 +1131,30 @@ var FIREBASE_CONFIG = {
       h(PermitsPanel,{data:data,empId:selObj.id,mKey:mKey,readOnly:!!s.closure.closed,onChange:rr,toast:props.toast,onUndoChange:props.onUndoChange}),
       h("div",{className:"sectitle"},"Conversioni & chiusura"),
       h(ClosurePanel,{data:data,empId:selObj.id,mKey:mKey,onChange:rr,toast:props.toast,onMissing:function(days){setMissing(days);}}),
+      h(SummaryBlock,{stats:s,showWorked:true}),
       hist?h(HistoryModal,{entry:hist.entry,date:hist.date,onClose:function(){setHist(null);}}):null,
-      missing?h(MissingModal,{days:missing,onClose:function(){setMissing(null);}}):null
+      missing?h(MissingModal,{days:missing,onClose:function(){setMissing(null);}}):null,
+      cleanup?h(CleanupModal,{data:data,onRun:runCleanup,onClose:function(){setCleanup(false);}}):null
     );
   }
 
+  function CleanupModal(props){
+    var data=props.data;
+    function opt(months){
+      var info=historyCleanup(data,months,false);
+      return h("div",{className:"emp-row",key:months,style:{alignItems:"center"}},
+        h("div",{className:"grow"},h("b",null,"Più vecchio di "+months+" mesi"),
+          h("div",{className:"hint"},info.count>0?(info.count+" giorni con cronologia in "+info.months.length+" mesi"):"niente da pulire")),
+        h("button",{className:"btn"+(info.count>0?" primary":""),disabled:info.count===0,onClick:function(){props.onRun(months);}},"Pulisci"));
+    }
+    return h("div",{className:"overlay",onClick:function(e){if(e.target.className==="overlay")props.onClose();}},
+      h("div",{className:"modal"},
+        h("div",{className:"mhead"},"Pulizia cronologia modifiche",h("div",{className:"spacer"}),h("button",{className:"btn ghost sm",onClick:props.onClose},"Chiudi")),
+        h("div",{className:"mbody"},
+          h("div",{className:"hint",style:{marginBottom:"10px"}},"Azzera la traccia \"modificato N volte\" dei mesi più vecchi, mantenendo gli ultimi mesi. Orari e presenze non vengono toccati. Operazione annullabile con ↶ (consigliato fare prima un Backup)."),
+          opt(3),opt(6),opt(12)),
+        h("div",{className:"mfoot"},h("button",{className:"btn",onClick:props.onClose},"Annulla"))));
+  }
   function MissingModal(props){
     return h("div",{className:"overlay",onClick:function(e){if(e.target.className==="overlay")props.onClose();}},
       h("div",{className:"modal",style:{maxWidth:"460px"}},
@@ -1137,6 +1193,7 @@ var FIREBASE_CONFIG = {
       setEmp(id,{permDaily: !empShowDaily(e)},"Dettaglio giornaliero"); }
     function toggleConv(id){ var e=byId(id); var nv=!empCanConv(e);
       setEmp(id, nv?{permConv:true,permDaily:true}:{permConv:false}, "Conversioni dipendente"); }
+    function toggleRiepilogo(id){ var e=byId(id); setEmp(id,{permRiepilogo: !empShowRiepilogo(e)},"Riepilogo dipendente"); }
     function tbtn(label,on,onClick){ return h("button",{className:"btn sm",
       style:{background:on?"#e7f3f1":"#f1f3f5",color:on?"var(--rol)":"var(--muted)",borderColor:on?"#cfe6e6":"var(--line)"},onClick:onClick}, label+": "+(on?"Sì":"No")); }
     return h("div",{className:"overlay",onClick:function(e){if(e.target.className==="overlay")props.onClose();}},
@@ -1151,10 +1208,11 @@ var FIREBASE_CONFIG = {
               tbtn("Console",empShowConsole(e),function(){toggleConsole(e.id);}),
               tbtn("Dettaglio",empShowDaily(e),function(){toggleDaily(e.id);}),
               tbtn("Conversioni",empCanConv(e),function(){toggleConv(e.id);}),
+              tbtn("Riepilogo",empShowRiepilogo(e),function(){toggleRiepilogo(e.id);}),
               h("button",{className:"btn sm",onClick:function(){chPin(e.id);}},"PIN"),
               h("button",{className:"btn danger sm",onClick:function(){del(e.id);}},"Rimuovi"));
           }):h("div",{className:"hint"},"Nessun dipendente ancora."),
-          h("div",{className:"hint",style:{marginTop:"8px"}},"Console = riepilogo ore in alto · Dettaglio = riepilogo accanto agli orari · Conversioni = il dipendente può aggiungersi ROL/ferie da debito."),
+          h("div",{className:"hint",style:{marginTop:"8px"}},"Console = riepilogo ore in alto · Dettaglio = riepilogo accanto agli orari · Conversioni = il dipendente può aggiungersi ROL/ferie da debito · Riepilogo = riepilogo completo in fondo (senza le ore lavorate)."),
           h("div",{className:"sectitle"},"Aggiungi dipendente"),
           h("div",{className:"row"},
             h("input",{className:"time-in",style:{width:"140px"},placeholder:"Nome",value:nome,onChange:function(e){setN(e.target.value);}}),
@@ -1165,6 +1223,26 @@ var FIREBASE_CONFIG = {
   }
 
   /* ----- Login ----- */
+  function SummaryBlock(props){
+    var s=props.stats, showWorked=props.showWorked!==false;
+    function cell(lbl,val,color){ return h("div",{style:{minWidth:"82px"}},
+      h("div",{className:"hint"},lbl),
+      h("div",{style:{fontWeight:700,fontSize:"15px",color:color||"var(--ink)"}},val)); }
+    var stato = s.closure.closed?"Chiuso":(s.missing.length?(s.missing.length+" da reg."):"Aperto");
+    return h("div",{className:"card pad",style:{marginTop:"14px"}},
+      h("div",{style:{fontWeight:700,fontSize:"15px",marginBottom:"10px"}},"Riepilogo del mese"),
+      h("div",{style:{display:"flex",flexWrap:"wrap",gap:"18px",rowGap:"12px"}},
+        showWorked?cell("Ore lav.",fmtMin(s.workedTotal)):null,
+        cell("ROL",fmtH05(s.rolAuto)),
+        cell("ROLdb",fmtH05(s.rolManual)),
+        cell("Ferie",String(s.ferie)),
+        cell("FERIEdb",String(s.ferieDebito)),
+        cell("Malattia",String(s.malattia)),
+        cell("Altre ass.",String(s.absDays-(s.ferie||0)-(s.malattia||0))),
+        cell("Permessi",String(s.permitCount||0)),
+        cell("Saldo",fmtSigned(s.netRunning), s.netRunning<0?"var(--debt)":"var(--ok)"),
+        cell("Stato",stato)));
+  }
   function BrandHeader(props){
     var compact=props&&props.compact;
     var er=useState(false),imgErr=er[0],setImgErr=er[1];
